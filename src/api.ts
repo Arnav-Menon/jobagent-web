@@ -10,6 +10,32 @@ export type Me = { uid: string; email: string; display_name: string; role: 'admi
 export type AdminUser = Me & { last_seen_at?: string }
 export type Invite = { email: string; created_at: string }
 
+/* ---------- Phase 2: onboarding (see jobs/docs/API.md) ---------- */
+export type StepKey = 'resume' | 'details' | 'standing' | 'preferences'
+export type SetupStatus = { steps: Record<StepKey, boolean>; missing_details: string[]; complete: boolean; mode: 'review' | 'auto' }
+export type ResumeMeta = { filename: string; sha256: string; size: number; pages: number; uploaded_at: string }
+export type FactValue = string | number | boolean
+export type FieldSpec = {
+  key: string; label: string; type: 'text' | 'email' | 'tel' | 'url' | 'number' | 'bool' | 'enum'
+  required: boolean; options?: string[]; help?: string
+}
+export type Profile = {
+  resume: ResumeMeta | null
+  facts: Record<string, { value: FactValue; confirmed_at: string }>
+  suggestions: Record<string, FactValue>
+  fields: FieldSpec[]
+}
+export type StandingValue = 'yes' | 'no' | 'hold'
+export type StandingSpec = { key: string; label: string; help?: string }
+export type Standing = { answers: Record<string, { value: StandingValue; confirmed_at: string }>; keys: StandingSpec[] }
+export type WorkMode = 'onsite' | 'hybrid' | 'remote'
+export type Seniority = 'junior' | 'mid' | 'senior' | 'staff'
+export type Preferences = {
+  locations: string[]; work_modes: WorkMode[]; include_keywords: string[]; exclude_keywords: string[]
+  seniority: Seniority[]; min_base_salary: number | null; companies_avoid: string[]; companies_prefer: string[]
+  min_fit_score: number; max_per_day: number; notes: string
+}
+
 export class ApiError extends Error {
   status: number
   detail: string
@@ -25,11 +51,16 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   const user = auth.currentUser
   if (!user) throw new ApiError(401, 'not_signed_in')
   const token = await user.getIdToken()
-  const res = await fetch(API_URL + path, {
-    ...init,
-    headers: { ...(init.headers || {}), Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-  })
+  // FormData bodies (resume upload) set their own multipart Content-Type.
+  const headers: Record<string, string> = { ...(init.headers as Record<string, string> | undefined), Authorization: `Bearer ${token}` }
+  if (init.body && !(init.body instanceof FormData)) headers['Content-Type'] = 'application/json'
+  let res: Response
+  try {
+    res = await fetch(API_URL + path, { ...init, headers })
+  } catch {
+    throw new ApiError(0, 'network')
+  }
   const body = await res.json().catch(() => ({}))
-  if (!res.ok) throw new ApiError(res.status, body.detail || res.statusText)
+  if (!res.ok) throw new ApiError(res.status, typeof body.detail === 'string' ? body.detail : res.status === 422 ? 'invalid_request' : res.statusText || 'request_failed')
   return body as T
 }
