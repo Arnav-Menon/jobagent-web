@@ -36,7 +36,7 @@ const FIELDS: FieldSpec[] = [
   { key: 'recent_school', label: 'Most recent school', type: 'text', required: false },
   { key: 'recent_degree', label: 'Most recent degree', type: 'enum', required: false, options: ['bachelor', 'master', 'phd', 'other'] },
   { key: 'recent_field', label: 'Field of study', type: 'text', required: false },
-  { key: 'years_experience', label: 'Years of professional experience', type: 'number', required: true, help: 'Full-time years since graduating, 0 to 50' },
+  { key: 'years_experience', label: 'Years of professional experience', type: 'number', required: true, help: 'Full-time paid jobs only. Don’t count internships or any time in school, including grad school.' },
   { key: 'work_authorized_us', label: 'Authorized to work in the US?', type: 'bool', required: true, help: 'For any US employer, without restriction' },
   { key: 'requires_sponsorship', label: 'Need visa sponsorship?', type: 'bool', required: true, help: 'Now or in the future' },
 ]
