@@ -1,6 +1,6 @@
 // Dev-only fixtures for `?demo=…` previews. Made-up people only. Mirrors jobs/docs/API.md.
 import { ApiError } from './api'
-import type { AdminUser, FactValue, FieldSpec, Invite, Me, Preferences, Profile, ResumeMeta, Standing, StandingSpec, StandingValue } from './api'
+import type { AdminUser, Application, Draft, FactValue, Run, FieldSpec, Invite, Me, Preferences, Profile, ResumeMeta, Standing, StandingSpec, StandingValue } from './api'
 
 const ago = (mins: number) => new Date(Date.now() - mins * 60000).toISOString()
 const now = () => new Date().toISOString()
@@ -70,6 +70,62 @@ function seedDone() {
   prefsAt = ago(60 * 27)
 }
 
+/* ---------- Phase 4 fixtures: runs, drafts, applications ---------- */
+let runs: Run[] = []
+let drafts: Draft[] = []
+let apps: Application[] = []
+const today = () => new Date().toISOString().slice(0, 10)
+
+const planFor = (company: string): Draft['plan'] => [
+  { label: 'Full name', kind: 'text', value: 'Alex Rivera', source: 'profile' },
+  { label: 'Email', kind: 'email', value: 'alex.rivera@example.com', source: 'profile' },
+  { label: 'Phone', kind: 'tel', value: '+1 555 010 0199', source: 'profile' },
+  { label: 'Resume', kind: 'file', value: 'Alex_Rivera_Resume.pdf', source: 'resume' },
+  { label: 'Are you legally authorized to work in the United States?', kind: 'radio', value: 'Yes', source: 'profile' },
+  { label: 'Will you now or in the future require sponsorship?', kind: 'radio', value: 'No', source: 'profile' },
+  { label: `Why are you interested in ${company}?`, kind: 'textarea', value: 'I have spent four years building analytics pipelines with SQL and dbt, and your team works on the same kind of problems.', source: 'resume draft (quoted)' },
+  { label: 'LinkedIn profile', kind: 'url', value: null, source: 'not in profile (optional)' },
+  { label: 'Gender', kind: 'select', value: 'Decline to self-identify', source: 'policy: demographics declined' },
+]
+
+function seedResults() {
+  runs = [
+    { id: 'r3', kind: 'discover', status: 'done', trigger: 'daily', created_at: ago(60 * 5), started_at: ago(60 * 5 - 1), finished_at: ago(60 * 5 - 9), counts: { scanned: 214, eligible: 9, scored: 9, drafts: 2, held: 1 } },
+    { id: 'r2', kind: 'apply', status: 'done', trigger: 'approval', created_at: ago(60 * 26), started_at: ago(60 * 26 - 1), finished_at: ago(60 * 26 - 3), counts: { submitted: 1, pending: 0 } },
+    { id: 'r1', kind: 'discover', status: 'failed', trigger: 'daily', created_at: ago(60 * 24 * 2), started_at: ago(60 * 24 * 2 - 1), finished_at: ago(60 * 24 * 2 - 4), error: 'board_unavailable' },
+  ]
+  drafts = [
+    { key: 'd1', status: 'awaiting_approval', company: 'Northwind Analytics', title: 'Analytics Engineer', url: 'https://example.com/jobs/1', provider: 'greenhouse', score: 4.4, confidence: 'high', plan: planFor('Northwind Analytics'), holds: [], created_at: ago(60 * 5 - 8), updated_at: ago(60 * 5 - 8) },
+    { key: 'd2', status: 'awaiting_approval', company: 'Contoso Health', title: 'Senior Data Analyst, Growth', url: 'https://example.com/jobs/2', provider: 'ashby', score: 4.1, confidence: 'medium', plan: planFor('Contoso Health').slice(0, 7), holds: [], created_at: ago(60 * 5 - 7), updated_at: ago(60 * 5 - 7) },
+    { key: 'd3', status: 'held', company: 'Fabrikam Labs', title: 'Data Analyst', url: 'https://example.com/jobs/3', provider: 'lever', score: 4.0, plan: [], holds: ['needs your standing answer (background_check_consent): Do you consent to a background check?', 'start date needed: When can you start?', 'LinkedIn required but not in profile: LinkedIn profile'], created_at: ago(60 * 5 - 6), updated_at: ago(60 * 5 - 6) },
+    { key: 'd0', status: 'submitted', company: 'Example Corp', title: 'Data Analyst II', url: 'https://example.com/jobs/0', provider: 'ashby', score: 4.6, plan: planFor('Example Corp'), holds: [], outcome: 'VISIBLE_SUCCESS', created_at: ago(60 * 30), updated_at: ago(60 * 26 - 3) },
+  ]
+  apps = [
+    { key: 'd0', state: 'SUBMITTED', company: 'Example Corp', title: 'Data Analyst II', url: 'https://example.com/jobs/0', quota_day: ago(60 * 26).slice(0, 10), updated_at: ago(60 * 26 - 3) },
+    { key: 'dx', state: 'PENDING_VERIFICATION', company: 'Tailspin Toys', title: 'Business Intelligence Analyst', url: 'https://example.com/jobs/9', quota_day: ago(60 * 24 * 6).slice(0, 10), updated_at: ago(60 * 24 * 6) },
+  ]
+}
+
+// Advance fake runs with wall-clock time so polling shows queued → running → done.
+function tick() {
+  const t = Date.now()
+  runs = runs.map(r => {
+    if (r.status === 'done' || r.status === 'failed') return r
+    const age = (t - new Date(r.created_at).getTime()) / 1000
+    if (age < 4) return r
+    if (age < 14) return { ...r, status: 'running', started_at: r.started_at || new Date(t).toISOString(), counts: r.kind === 'discover' ? { scanned: Math.round(age * 12) } : r.counts }
+    if (r.kind === 'apply') {
+      const key = r.id.replace('apply-', '')
+      drafts = drafts.map(d => (d.key === key ? { ...d, status: 'submitted', outcome: 'VISIBLE_SUCCESS', updated_at: now() } : d))
+      const d = drafts.find(x => x.key === key)!
+      apps = [{ key, state: 'SUBMITTED', company: d.company, title: d.title, url: d.url, quota_day: today(), updated_at: now() }, ...apps.filter(a => a.key !== key)]
+      return { ...r, status: 'done', finished_at: now(), counts: { submitted: 1, pending: 0 } }
+    }
+    drafts = [{ key: `d${t}`, status: 'awaiting_approval', company: 'Woodgrove Bank', title: 'Data Analyst, Risk', url: 'https://example.com/jobs/7', provider: 'greenhouse', score: 4.2, confidence: 'medium', plan: planFor('Woodgrove Bank'), holds: [], created_at: now(), updated_at: now() }, ...drafts]
+    return { ...r, status: 'done', finished_at: now(), counts: { scanned: 168, eligible: 6, scored: 6, drafts: 1, held: 0 } }
+  })
+}
+
 const profile = (): Profile => ({ resume, facts, suggestions, fields: FIELDS })
 function setup() {
   const missing = FIELDS.filter(f => f.required && !(f.key in facts)).map(f => f.key)
@@ -97,7 +153,8 @@ const bad = (code: string) => new ApiError(400, code)
 
 export async function demoApi<T>(path: string, init: RequestInit, demo: string): Promise<T> {
   if (demo === 'admin-loading') return new Promise<T>(() => {})
-  if (demo === 'setup-done' && !seeded) { seeded = true; seedDone() }
+  if ((demo === 'setup-done' || demo.startsWith('results')) && !seeded) { seeded = true; seedDone(); if (demo === 'results') seedResults() }
+  tick()
   await wait(path === '/me/resume' ? 1400 : 450)
   if (demo === 'admin-error' && path.startsWith('/admin')) throw new Error('Service unavailable')
   if (demo === 'setup-error' && path.startsWith('/me/')) throw new ApiError(404, 'Not Found')
@@ -154,5 +211,28 @@ export async function demoApi<T>(path: string, init: RequestInit, demo: string):
     mode = body.mode
     return r({ mode })
   }
+  if (path === '/me/runs' && method === 'GET') return r(runs)
+  if (path === '/me/runs') {
+    if (!setup().complete) throw bad('setup_incomplete')
+    if (runs.some(x => x.status === 'queued' || x.status === 'running')) throw new ApiError(409, 'run_in_progress')
+    const run: Run = { id: `r${Date.now()}`, kind: 'discover', status: 'queued', trigger: 'manual', created_at: now() }
+    runs = [run, ...runs]
+    return r(run)
+  }
+  if (path.startsWith('/me/drafts?')) { const st = new URLSearchParams(path.split('?')[1]).get('status'); return r(drafts.filter(d => !st || d.status === st)) }
+  if (path === '/me/drafts') return r(drafts)
+  const dm = path.match(/^\/me\/drafts\/([^/]+)\/(approve|reject|screens)$/)
+  if (dm) {
+    const d = drafts.find(x => x.key === decodeURIComponent(dm[1]))
+    if (!d) throw new ApiError(404, 'not_found')
+    if (dm[2] === 'screens') return r(d.status === 'submitted' ? { filled: 'about:blank', result: 'about:blank', expires_in: 300 } : { expires_in: 300 })
+    if (d.status !== 'awaiting_approval') throw new ApiError(409, 'not_awaiting_approval')
+    if (dm[2] === 'reject') { drafts = drafts.map(x => (x.key === d.key ? { ...x, status: 'rejected', updated_at: now() } : x)); return r({ key: d.key, status: 'rejected' }) }
+    drafts = drafts.map(x => (x.key === d.key ? { ...x, status: 'approved', updated_at: now() } : x))
+    const run: Run = { id: `apply-${d.key}`, kind: 'apply', status: 'queued', trigger: 'approval', created_at: now() }
+    runs = [run, ...runs]
+    return r({ key: d.key, status: 'approved', run_id: run.id })
+  }
+  if (path === '/me/applications') return r(apps)
   throw new ApiError(404, 'Not Found')
 }

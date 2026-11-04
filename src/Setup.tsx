@@ -19,7 +19,7 @@ const META: Record<Step, { title: string; short: string; Comp: (p: StepProps) =>
   mode: { title: 'Choose how it applies', short: 'Mode', Comp: ModeStep },
 }
 
-export default function Setup({ me }: { me: Me }) {
+export default function Setup({ me, initialStep }: { me: Me; initialStep?: Step }) {
   const toast = useToast()
   const [setup, setSetup] = useState<SetupStatus | null>(null)
   const [loadErr, setLoadErr] = useState('')
@@ -34,8 +34,8 @@ export default function Setup({ me }: { me: Me }) {
   }, [])
 
   const load = useCallback(() => {
-    refresh().then(s => setStep(ORDER.find(k => k !== 'mode' && !s.steps[k as StepKey]) || 'mode'), e => setLoadErr(errorText(e)))
-  }, [refresh])
+    refresh().then(s => setStep(initialStep || ORDER.find(k => k !== 'mode' && !s.steps[k as StepKey]) || 'mode'), e => setLoadErr(errorText(e)))
+  }, [refresh, initialStep])
   useEffect(() => { load() }, [load])
 
   useEffect(() => {

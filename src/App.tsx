@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
-import { api, ApiError, auth, DEMO, logOut, signIn, type Me } from './api'
+import { api, ApiError, auth, DEMO, logOut, signIn, type Me, type SetupStatus } from './api'
 import Admin from './Admin'
 import Landing from './Landing'
+import Results, { type SetupTarget } from './Results'
 import Setup from './Setup'
 import { Avatar, Icon, Logo, Skeleton, ThemeToggle, ToastProvider } from './ui'
 
@@ -13,7 +14,7 @@ type State =
   | { kind: 'ready'; me: Me }
   | { kind: 'error'; message: string }
 
-type Tab = 'setup' | 'admin'
+type Tab = 'results' | 'setup' | 'admin'
 
 const REFUSALS: Record<string, { title: string; body: string }> = {
   not_invited: {
@@ -45,12 +46,19 @@ function demoState(): State | null {
 
 export default function App() {
   const [state, setState] = useState<State>(() => demoState() || { kind: 'loading' })
-  const [tab, setTab] = useState<Tab>(() => (DEMO?.startsWith('admin') ? 'admin' : 'setup'))
+  const [tab, setTab] = useState<Tab>('setup')
+  const [setupTarget, setSetupTarget] = useState<{ step: SetupTarget; n: number } | null>(null)
+
+  const goSetup = (step: SetupTarget) => { setSetupTarget(t => ({ step, n: (t?.n || 0) + 1 })); setTab('setup') }
 
   const loadMe = useCallback(async () => {
     setState({ kind: 'loading' })
     try {
-      setState({ kind: 'ready', me: await api<Me>('/me') })
+      const me = await api<Me>('/me')
+      // Land on Results once setup is finished, otherwise on Setup.
+      const s = await api<SetupStatus>('/me/setup').catch(() => null)
+      setTab(DEMO?.startsWith('admin') ? 'admin' : s?.complete ? 'results' : 'setup')
+      setState({ kind: 'ready', me })
     } catch (e) {
       if (e instanceof ApiError && e.status === 403) setState({ kind: 'refused', reason: e.detail })
       else setState({ kind: 'error', message: e instanceof Error ? e.message : String(e) })
@@ -86,7 +94,9 @@ export default function App() {
       )}
       {state.kind === 'ready' && (
         <Shell me={state.me} tab={tab} onTab={setTab}>
-          {tab === 'admin' && state.me.role === 'admin' ? <Admin me={state.me} /> : <Setup me={state.me} />}
+          {tab === 'admin' && state.me.role === 'admin' ? <Admin me={state.me} />
+            : tab === 'results' ? <Results me={state.me} goSetup={goSetup} />
+            : <Setup key={setupTarget?.n || 0} me={state.me} initialStep={setupTarget?.step} />}
         </Shell>
       )}
     </ToastProvider>
@@ -94,7 +104,9 @@ export default function App() {
 }
 
 function Shell({ me, tab, onTab, children }: { me?: Me | null; tab?: Tab; onTab?: (t: Tab) => void; children: React.ReactNode }) {
-  const tabs: { id: Tab; label: string }[] = me ? [{ id: 'setup', label: 'Setup' }, ...(me.role === 'admin' ? [{ id: 'admin' as Tab, label: 'Admin' }] : [])] : []
+  const tabs: { id: Tab; label: string }[] = me
+    ? [{ id: 'results', label: 'Results' }, { id: 'setup', label: 'Setup' }, ...(me.role === 'admin' ? [{ id: 'admin' as Tab, label: 'Admin' }] : [])]
+    : []
   return (
     <div className="shell">
       <a className="skip" href="#main">Skip to content</a>
