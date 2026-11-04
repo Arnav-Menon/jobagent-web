@@ -16,7 +16,12 @@ export class ApiError extends Error {
   constructor(status: number, detail: string) { super(detail); this.status = status; this.detail = detail }
 }
 
+// Dev-only fixture mode (`?demo=admin`, `?demo=not_invited`, …) for previewing UI states
+// without signing in. `import.meta.env.DEV` is false in production builds, so this is stripped.
+export const DEMO = import.meta.env.DEV ? new URLSearchParams(location.search).get('demo') : null
+
 export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
+  if (import.meta.env.DEV && DEMO) return (await import('./demo')).demoApi<T>(path, init, DEMO)
   const user = auth.currentUser
   if (!user) throw new ApiError(401, 'not_signed_in')
   const token = await user.getIdToken()
