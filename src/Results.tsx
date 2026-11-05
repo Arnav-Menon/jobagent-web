@@ -69,6 +69,24 @@ function holdFix(reason: string): { step: SetupTarget; label: string } | null {
 
 /* ---------- page ---------- */
 
+type ResultsData = [SetupStatus, Run[], Draft[], Application[]]
+const fetchResults = (): Promise<ResultsData> => Promise.all([
+  api<SetupStatus>('/me/setup'), api<Run[]>('/me/runs'), api<Draft[]>('/me/drafts'), api<Application[]>('/me/applications'),
+])
+let prefetched: { at: number; data: Promise<ResultsData> } | null = null
+/** Start loading Results data alongside /me so the first paint needs one parallel round trip, not several. */
+export function prefetchResults(): Promise<ResultsData> {
+  const data = fetchResults()
+  data.catch(() => {}) // the consumer reports errors; avoid an unhandled rejection if unused
+  prefetched = { at: Date.now(), data }
+  return data
+}
+/** Use the prefetched data once, and only if fresh (e.g. not after sitting on Setup for a while). */
+function takePrefetch() {
+  const p = prefetched; prefetched = null
+  return p && Date.now() - p.at < 15_000 ? p.data : null
+}
+
 export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTarget) => void }) {
   const toast = useToast()
   const [setup, setSetup] = useState<SetupStatus | null>(null)
@@ -82,9 +100,7 @@ export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTar
 
   const loadAll = useCallback(async () => {
     try {
-      const [s, r, d, a] = await Promise.all([
-        api<SetupStatus>('/me/setup'), api<Run[]>('/me/runs'), api<Draft[]>('/me/drafts'), api<Application[]>('/me/applications'),
-      ])
+      const [s, r, d, a] = await (takePrefetch() || fetchResults())
       setSetup(s); setRuns(r); setDrafts(d.map(x => ({ ...x, plan: x.plan || [], holds: x.holds || [] }))); setApps(a); setLoadErr('')
       wasActive.current = r.some(active)
     } catch (e) { setLoadErr(errorText(e)) }

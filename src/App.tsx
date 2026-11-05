@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { onAuthStateChanged } from 'firebase/auth'
-import { api, ApiError, auth, DEMO, logOut, signIn, type Me, type SetupStatus } from './api'
+import { api, ApiError, auth, DEMO, logOut, signIn, type Me } from './api'
 import Admin from './Admin'
 import Landing from './Landing'
-import Results, { type SetupTarget } from './Results'
+import Results, { prefetchResults, type SetupTarget } from './Results'
 import Setup from './Setup'
 import { Avatar, Icon, Logo, Skeleton, ThemeToggle, ToastProvider } from './ui'
 
@@ -54,9 +54,11 @@ export default function App() {
   const loadMe = useCallback(async () => {
     setState({ kind: 'loading' })
     try {
-      const me = await api<Me>('/me')
+      // Fetch /me and everything Results needs in one parallel round trip.
+      const results = prefetchResults()
+      const [me, data] = await Promise.all([api<Me>('/me'), results.catch(() => null)])
       // Land on Results once setup is finished, otherwise on Setup.
-      const s = await api<SetupStatus>('/me/setup').catch(() => null)
+      const s = data?.[0]
       setTab(DEMO?.startsWith('admin') ? 'admin' : s?.complete ? 'results' : 'setup')
       setState({ kind: 'ready', me })
     } catch (e) {
