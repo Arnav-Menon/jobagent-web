@@ -9,6 +9,7 @@ import ResumeStep from './setup/ResumeStep'
 import StandingStep from './setup/StandingStep'
 import type { StepProps } from './setup/types'
 import { Badge, Icon, Skeleton, useToast } from './ui'
+import { LEAVE_MESSAGE, unsaved } from './unsaved'
 
 type Step = StepKey | 'mode' | 'data'
 const ORDER: Step[] = ['resume', 'details', 'standing', 'preferences', 'mode', 'data']
@@ -46,19 +47,20 @@ export default function Setup({ me, initialStep }: { me: Me; initialStep?: Step 
     return () => removeEventListener('beforeunload', warn)
   }, [])
 
-  const setDirty = useCallback((d: boolean) => { dirty.current = d }, [])
+  const setDirty = useCallback((d: boolean) => { dirty.current = d; unsaved.dirty = d }, [])
+  useEffect(() => () => { unsaved.dirty = false }, [])
 
   const go = (s: Step) => {
     if (s === step) return
-    if (dirty.current && !confirm('You have unsaved changes on this step. Leave without saving?')) return
-    dirty.current = false
+    if (dirty.current && !confirm(LEAVE_MESSAGE.replace('in Setup', 'on this step'))) return
+    dirty.current = false; unsaved.dirty = false
     setStep(s)
     requestAnimationFrame(() => panel.current?.focus({ preventScroll: true }))
     panel.current?.scrollIntoView({ block: 'start', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
   }
 
   const onDone = async (message: string) => {
-    dirty.current = false
+    dirty.current = false; unsaved.dirty = false
     if (message) toast(message)
     const i = ORDER.indexOf(step)
     if (i < ORDER.indexOf('mode')) go(ORDER[i + 1])

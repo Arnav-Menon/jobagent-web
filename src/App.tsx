@@ -5,6 +5,7 @@ import Admin from './Admin'
 import Landing from './Landing'
 import Results, { prefetchResults, type SetupTarget } from './Results'
 import Terms from './Terms'
+import { confirmLeave } from './unsaved'
 import Setup from './Setup'
 import { Avatar, Icon, Logo, Skeleton, ThemeToggle, ToastProvider } from './ui'
 
@@ -50,6 +51,8 @@ export default function App() {
   const [tab, setTab] = useState<Tab>('setup')
   const [setupTarget, setSetupTarget] = useState<{ step: SetupTarget; n: number } | null>(null)
 
+  // Leaving the Setup tab with unsaved edits asks first (they'd otherwise be lost silently).
+  const switchTab = (t: Tab) => { if (t === tab || confirmLeave()) setTab(t) }
   const goSetup = (step: SetupTarget) => { setSetupTarget(t => ({ step, n: (t?.n || 0) + 1 })); setTab('setup') }
 
   const loadMe = useCallback(async () => {
@@ -85,7 +88,7 @@ export default function App() {
   }, [])
 
   if (route === '#/terms') {
-    const leave = (t: Tab) => { setTab(t); history.pushState(null, '', location.pathname + location.search); setRoute('') }
+    const leave = (t: Tab) => { if (!confirmLeave()) return; setTab(t); history.pushState(null, '', location.pathname + location.search); setRoute('') }
     return (
       <ToastProvider>
         {state.kind === 'ready'
@@ -113,7 +116,7 @@ export default function App() {
         </Shell>
       )}
       {state.kind === 'ready' && (
-        <Shell me={state.me} tab={tab} onTab={setTab}>
+        <Shell me={state.me} tab={tab} onTab={switchTab}>
           {tab === 'admin' && state.me.role === 'admin' ? <Admin me={state.me} />
             : tab === 'results' ? <Results me={state.me} goSetup={goSetup} />
             : <Setup key={setupTarget?.n || 0} me={state.me} initialStep={setupTarget?.step} />}
@@ -178,10 +181,10 @@ function UserMenu({ me }: { me: Me | null }) {
             {name && <strong>{name}</strong>}
             <span>{email}</span>
           </div>
-          <a role="menuitem" className="menu-item" href="#/terms" onClick={() => setOpen(false)}>
+          <a role="menuitem" className="menu-item" href="#/terms" onClick={e => { if (!confirmLeave()) e.preventDefault(); setOpen(false) }}>
             <Icon name="lock" size={16} /> Terms and privacy
           </a>
-          <button role="menuitem" className="menu-item" onClick={() => { setOpen(false); logOut() }} autoFocus>
+          <button role="menuitem" className="menu-item" onClick={() => { setOpen(false); if (confirmLeave()) logOut() }} autoFocus>
             <Icon name="logout" size={16} /> Sign out
           </button>
         </div>
