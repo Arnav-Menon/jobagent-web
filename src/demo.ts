@@ -98,6 +98,7 @@ function seedResults() {
     { key: 'd1', status: 'awaiting_approval', company: 'Northwind Analytics', title: 'Analytics Engineer', url: 'https://example.com/jobs/1', provider: 'greenhouse', score: 4.4, confidence: 'high', plan: planFor('Northwind Analytics'), holds: [], created_at: ago(60 * 5 - 8), updated_at: ago(60 * 5 - 8) },
     { key: 'd2', status: 'awaiting_approval', company: 'Contoso Health', title: 'Senior Data Analyst, Growth', url: 'https://example.com/jobs/2', provider: 'ashby', score: 4.1, confidence: 'medium', plan: planFor('Contoso Health').slice(0, 7), holds: [], created_at: ago(60 * 5 - 7), updated_at: ago(60 * 5 - 7) },
     { key: 'd3', status: 'held', company: 'Fabrikam Labs', title: 'Data Analyst', url: 'https://example.com/jobs/3', provider: 'lever', score: 4.0, plan: [], holds: ['needs your standing answer (background_check_consent): Do you consent to a background check?', 'start date needed: When can you start?', 'LinkedIn required but not in profile: LinkedIn profile'], created_at: ago(60 * 5 - 6), updated_at: ago(60 * 5 - 6) },
+    { key: 'd4', status: 'needs_you', company: 'Tailspin Toys', title: 'Data Engineer', url: 'https://example.com/jobs/4', provider: 'ashby', score: 4.3, plan: planFor('Tailspin Toys'), holds: [], outcome: 'CAPTCHA_CHALLENGE', created_at: ago(60 * 7), updated_at: ago(60 * 6) },
     { key: 'd0', status: 'submitted', company: 'Example Corp', title: 'Data Analyst II', url: 'https://example.com/jobs/0', provider: 'ashby', score: 4.6, plan: planFor('Example Corp'), holds: [], outcome: 'VISIBLE_SUCCESS', created_at: ago(60 * 30), updated_at: ago(60 * 26 - 3) },
   ]
   apps = [
@@ -221,6 +222,13 @@ export async function demoApi<T>(path: string, init: RequestInit, demo: string):
   }
   if (path.startsWith('/me/drafts?')) { const st = new URLSearchParams(path.split('?')[1]).get('status'); return r(drafts.filter(d => !st || d.status === st)) }
   if (path === '/me/drafts') return r(drafts)
+  const done = path.match(/^\/me\/drafts\/([^/]+)\/done$/)
+  if (done) {
+    const d = drafts.find(x => x.key === done[1])
+    if (!d || d.status !== 'needs_you') throw new ApiError(409, 'not_awaiting_approval')
+    const status = body.how === 'submitted' ? 'submitted_by_you' : 'dismissed'
+    drafts = drafts.map(x => (x.key === d.key ? { ...x, status, updated_at: now() } : x)); return r({ key: d.key, status })
+  }
   const dm = path.match(/^\/me\/drafts\/([^/]+)\/(approve|reject|screens)$/)
   if (dm) {
     const d = drafts.find(x => x.key === decodeURIComponent(dm[1]))

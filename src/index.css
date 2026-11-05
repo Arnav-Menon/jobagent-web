@@ -481,6 +481,9 @@ table.users { width: 100%; border-collapse: collapse; font-size: 15px; }
 .toast.tone-danger { background: var(--danger); color: #fff; }
 .toast.tone-held > .icon { color: var(--held); }
 .sched-item { border-left-color: var(--accent); }
+.needs-card { border-left: 4px solid var(--held); }
+.needs-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; }
+.needs-done { justify-content: flex-end; border-top: 1px solid var(--line); padding-top: 12px; }
 .sched-actions { display: flex; justify-content: flex-end; }
 .toast .icon-btn { color: inherit; opacity: .7; width: 30px; height: 30px; }
 .toast .icon-btn:hover { background: rgb(255 255 255 / .12); color: inherit; opacity: 1; }

@@ -52,6 +52,7 @@ const STATE: Record<AppState, { label: string; tone: string; hint: string }> = {
   PENDING_VERIFICATION: { label: 'Unconfirmed', tone: 'held', hint: 'It may have been sent, but no confirmation page was seen. Check your email for a confirmation. It won’t be retried.' },
   SUBMITTING: { label: 'Submitting', tone: 'accent', hint: 'Being submitted now.' },
   FAILED: { label: 'Failed', tone: 'danger', hint: 'Not submitted. It won’t be retried automatically.' },
+  NOT_SENT: { label: 'Not sent', tone: 'plain', hint: 'The agent stopped before anything was sent, usually because of a CAPTCHA. It doesn’t count against your limit. Submit it yourself if you still want it.' },
 }
 
 const PROVIDER: Record<string, string> = { ashby: 'Ashby', greenhouse: 'Greenhouse', lever: 'Lever', 'lever-eu': 'Lever' }
@@ -123,6 +124,17 @@ export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTar
     } finally { setStarting(false) }
   }
 
+  const finish = async (d: Draft, how: 'submitted' | 'skipped') => {
+    try {
+      await api(`/me/drafts/${encodeURIComponent(d.key)}/done`, { method: 'POST', body: JSON.stringify({ how }) })
+      toast(how === 'submitted' ? `Noted: you submitted ${d.company} yourself.` : `Skipped ${d.company}.`)
+      await loadAll()
+    } catch (e) {
+      toast(errorText(e), 'danger')
+      if (e instanceof ApiError && (e.detail === 'not_awaiting_approval' || e.detail === 'unknown_draft')) loadAll()
+    }
+  }
+
   const decide = async (d: Draft, action: 'approve' | 'reject') => {
     try {
       const res = await api<Decision>(`/me/drafts/${encodeURIComponent(d.key)}/${action}`, { method: 'POST' })
@@ -147,6 +159,7 @@ export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTar
   const loading = runs === null && !loadErr
   const awaiting = drafts?.filter(d => d.status === 'awaiting_approval') || []
   const held = drafts?.filter(d => d.status === 'held') || []
+  const needsYou = drafts?.filter(d => d.status === 'needs_you') || []
   const scheduled = (drafts?.filter(d => d.status === 'scheduled') || []).sort((a, b) => (a.scheduled_for || '').localeCompare(b.scheduled_for || ''))
   const inFlight = drafts?.filter(d => d.status === 'approved' || d.status === 'submitting') || []
   const mode = setup?.mode || me.mode
@@ -222,6 +235,17 @@ export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTar
               </ul>
             )}
           </section>
+
+          {needsYou.length > 0 && (
+            <section className="r-section" aria-labelledby="needs-title">
+              <div className="r-head">
+                <h2 id="needs-title">Needs you to submit</h2>
+                <span className="count tone-held">{needsYou.length}</span>
+              </div>
+              <p className="r-sub">A CAPTCHA (or the page itself) stopped the agent before it sent anything. The agent never solves CAPTCHAs, so these are yours to finish. Nothing was sent, and they don’t count against your daily limit.</p>
+              <div className="drafts">{needsYou.map(d => <NeedsYouCard key={d.key} d={d} onFinish={finish} />)}</div>
+            </section>
+          )}
 
           {scheduled.length > 0 && (
             <section className="r-section" aria-labelledby="scheduled-title">
@@ -342,6 +366,49 @@ function JobTitle({ d }: { d: Pick<Draft, 'company' | 'title' | 'url'> }) {
       <p className="job-co">{d.company}</p>
       <a className="job-title" href={d.url} target="_blank" rel="noopener noreferrer">{d.title}<span className="sr-only"> (opens job posting in a new tab)</span></a>
     </div>
+  )
+}
+
+function NeedsYouCard({ d, onFinish }: { d: Draft; onFinish: (d: Draft, how: 'submitted' | 'skipped') => Promise<void> }) {
+  const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [copied, setCopied] = useState<number | null>(null)
+  const answers = d.plan.filter(p => p.value !== null && p.kind !== 'file')
+  const copy = async (i: number, v: string) => {
+    try { await navigator.clipboard.writeText(v); setCopied(i); setTimeout(() => setCopied(c => (c === i ? null : c)), 1500) } catch { /* clipboard blocked */ }
+  }
+  const act = async (how: 'submitted' | 'skipped') => { setBusy(true); await onFinish(d, how); setBusy(false) }
+  return (
+    <article className="draft needs-card" aria-label={`${d.company}, ${d.title}`}>
+      <div className="held-top">
+        <JobTitle d={d} />
+        <span className="when">{d.outcome === 'CAPTCHA_CHALLENGE' ? 'CAPTCHA appeared' : 'No confirmation, nothing sent'}</span>
+      </div>
+      <p className="draft-meta">Open the application, paste the answers you approved, attach your resume and submit it yourself.</p>
+      <div className="needs-actions">
+        <a className="btn btn-primary btn-sm" href={d.url} target="_blank" rel="noopener noreferrer">Open application<span className="sr-only"> (new tab)</span></a>
+        <button className="disclose" aria-expanded={open} aria-controls={`needs-${d.key}`} onClick={() => setOpen(o => !o)}>
+          <span className="chev" aria-hidden="true" /> {open ? 'Hide answers' : `Show ${answers.length} answers to copy`}
+        </button>
+      </div>
+      {open && (
+        <dl className="plan" id={`needs-${d.key}`}>
+          {answers.map((p, i) => (
+            <div key={i} className="plan-row">
+              <dt>{p.label}</dt>
+              <dd>
+                <span className="plan-v">{p.value}</span>
+                <button className="link-btn" onClick={() => copy(i, p.value as string)}>{copied === i ? 'Copied' : 'Copy'}</button>
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )}
+      <div className="needs-actions needs-done">
+        <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => act('skipped')}>Skip it</button>
+        <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => act('submitted')}>I submitted it</button>
+      </div>
+    </article>
   )
 }
 
