@@ -56,7 +56,7 @@ export const Skeleton = ({ w = '100%', h = 14 }: { w?: number | string; h?: numb
 
 /* ---------- toasts ---------- */
 
-type Toast = { id: number; text: string; tone: 'ok' | 'danger' }
+type Toast = { id: number; text: string; tone: 'ok' | 'held' | 'danger' }
 const ToastCtx = createContext<(text: string, tone?: Toast['tone']) => void>(() => {})
 export const useToast = () => useContext(ToastCtx)
 
@@ -66,7 +66,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const push = useCallback((text: string, tone: Toast['tone'] = 'ok') => {
     const id = ++next.current
     setToasts(t => [...t, { id, text, tone }])
-    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), tone === 'danger' ? 7000 : 4000)
+    setTimeout(() => setToasts(t => t.filter(x => x.id !== id)), tone === 'ok' ? 4000 : 7000)
   }, [])
   return (
     <ToastCtx.Provider value={push}>

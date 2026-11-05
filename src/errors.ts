@@ -10,6 +10,7 @@ const CODES: Record<string, string> = {
   invalid_request: 'Some values weren’t accepted. Check the form and try again.',
   run_in_progress: 'A search is already running. Results will appear here when it finishes.',
   not_awaiting_approval: 'This application was already decided, so nothing changed. The list has been refreshed.',
+  limit_full_pending: 'Your daily limit is taken up by applications that are still unconfirmed, so nothing new can be scheduled. Raise your daily limit in Preferences, or wait until those are confirmed.',
   unknown_draft: 'That application no longer exists. The list has been refreshed.',
   not_signed_in: 'Your sign-in expired. Sign out and sign in again.',
   missing_token: 'Your sign-in expired. Sign out and sign in again.',

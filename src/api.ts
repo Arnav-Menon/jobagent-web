@@ -37,19 +37,20 @@ export type Preferences = {
 }
 
 /* ---------- Phase 4: runs, drafts, applications ---------- */
-export type RunCounts = { scanned?: number; eligible?: number; scored?: number; drafts?: number; held?: number; submitted?: number; pending?: number }
+export type RunCounts = { scanned?: number; eligible?: number; scored?: number; drafts?: number; held?: number; submitted?: number; pending?: number; scheduled?: number }
 export type Run = {
   id: string; kind: 'discover' | 'apply'; status: 'queued' | 'running' | 'done' | 'failed'
-  created_at: string; started_at?: string; finished_at?: string; trigger: 'manual' | 'daily' | 'approval'
+  created_at: string; started_at?: string; finished_at?: string; trigger: 'manual' | 'daily' | 'approval' | 'scheduled'
   counts?: RunCounts; error?: string
 }
-export type DraftStatus = 'awaiting_approval' | 'held' | 'approved' | 'submitting' | 'submitted' | 'pending_verification' | 'rejected' | 'failed'
+export type DraftStatus = 'awaiting_approval' | 'held' | 'scheduled' | 'approved' | 'submitting' | 'submitted' | 'pending_verification' | 'rejected' | 'failed'
 export type PlanRow = { label: string; kind: string; value: string | null; source: string }
 export type Draft = {
   key: string; status: DraftStatus; company: string; title: string; url: string
   provider: 'ashby' | 'greenhouse' | 'lever' | 'lever-eu'; score: number | null; confidence?: string
-  plan: PlanRow[]; holds: string[]; outcome?: string; created_at: string; updated_at: string
+  plan: PlanRow[]; holds: string[]; outcome?: string; scheduled_for?: string; created_at: string; updated_at: string
 }
+export type Decision = { key: string; status: 'approved' | 'scheduled' | 'rejected'; run_id?: string; scheduled_for?: string; reason?: 'daily_limit' | 'weekend' }
 export type AppState = 'SUBMITTING' | 'PENDING_VERIFICATION' | 'SUBMITTED' | 'FAILED'
 export type Application = { key: string; state: AppState; company: string; title: string; url: string; quota_day: string; updated_at: string }
 export type Screens = { filled?: string; result?: string; expires_in: number }

@@ -1,10 +1,22 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { api, ApiError, DEMO, type Application, type AppState, type Draft, type Me, type Run, type Screens, type SetupStatus } from './api'
+import { api, ApiError, DEMO, type Application, type Decision, type AppState, type Draft, type Me, type Run, type Screens, type SetupStatus } from './api'
 import { errorText } from './errors'
 import { Icon, Skeleton, fullTime, relTime, useToast } from './ui'
 
 export type SetupTarget = 'resume' | 'details' | 'standing' | 'preferences' | 'mode'
 const POLL_MS = import.meta.env.DEV && DEMO ? 3000 : 20000
+/** "tomorrow" / "Monday, Nov 9" for a YYYY-MM-DD New York date. */
+function dayName(iso?: string) {
+  if (!iso) return 'the next weekday'
+  const [y, m, d] = iso.split('-').map(Number)
+  const target = new Date(y, m - 1, d)
+  const ny = new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }))
+  const days = Math.round((target.getTime() - new Date(ny.getFullYear(), ny.getMonth(), ny.getDate()).getTime()) / 86400000)
+  if (days <= 0) return 'today'
+  if (days === 1) return 'tomorrow'
+  return target.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+}
+
 const active = (r: Run) => r.status === 'queued' || r.status === 'running'
 
 /* ---------- small helpers ---------- */
@@ -33,7 +45,7 @@ function countsText(r: Run): string {
 
 const RUN_ERRORS: Record<string, string> = {}
 const runName = (r: Run) =>
-  r.kind === 'apply' ? 'Submitting approved application' : r.trigger === 'manual' ? 'Search you started' : 'Daily search'
+  r.kind === 'apply' ? (r.trigger === 'scheduled' ? 'Submitting scheduled application' : 'Submitting approved application') : r.trigger === 'manual' ? 'Search you started' : 'Daily search'
 
 const STATE: Record<AppState, { label: string; tone: string; hint: string }> = {
   SUBMITTED: { label: 'Submitted', tone: 'ok', hint: 'The company’s confirmation page was seen.' },
@@ -113,9 +125,16 @@ export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTar
 
   const decide = async (d: Draft, action: 'approve' | 'reject') => {
     try {
-      await api(`/me/drafts/${encodeURIComponent(d.key)}/${action}`, { method: 'POST' })
-      toast(action === 'approve' ? `Approved. Submitting your application to ${d.company} shortly.` : `Rejected. ${d.company} won’t get this application.`)
-      wasActive.current = action === 'approve' || wasActive.current
+      const res = await api<Decision>(`/me/drafts/${encodeURIComponent(d.key)}/${action}`, { method: 'POST' })
+      if (res.status === 'scheduled') {
+        const day = dayName(res.scheduled_for)
+        toast(res.reason === 'weekend'
+          ? `Approved. Applications only go out on weekdays, so ${d.company} is scheduled for ${day}.`
+          : `You’ve reached today’s limit. ${d.company} is approved and scheduled for ${day}.`, 'held')
+      } else {
+        toast(action === 'approve' ? `Approved. Submitting your application to ${d.company} shortly.` : `Rejected. ${d.company} won’t get this application.`)
+        wasActive.current = action === 'approve' || wasActive.current
+      }
       await loadAll()
       return true
     } catch (e) {
@@ -128,6 +147,7 @@ export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTar
   const loading = runs === null && !loadErr
   const awaiting = drafts?.filter(d => d.status === 'awaiting_approval') || []
   const held = drafts?.filter(d => d.status === 'held') || []
+  const scheduled = (drafts?.filter(d => d.status === 'scheduled') || []).sort((a, b) => (a.scheduled_for || '').localeCompare(b.scheduled_for || ''))
   const inFlight = drafts?.filter(d => d.status === 'approved' || d.status === 'submitting') || []
   const mode = setup?.mode || me.mode
   const ready = setup?.complete ?? true
@@ -202,6 +222,29 @@ export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTar
               </ul>
             )}
           </section>
+
+          {scheduled.length > 0 && (
+            <section className="r-section" aria-labelledby="scheduled-title">
+              <div className="r-head">
+                <h2 id="scheduled-title">Scheduled</h2>
+                <span className="count">{scheduled.length}</span>
+              </div>
+              <p className="r-sub">You approved these after reaching your daily limit. Each one is submitted on its day, after 9am New York time, with the answers you approved. Nothing has been sent yet.</p>
+              <ul className="held">
+                {scheduled.map(d => (
+                  <li key={d.key} className="held-item sched-item">
+                    <div className="held-top">
+                      <JobTitle d={d} />
+                      <span className="when">{dayName(d.scheduled_for)}</span>
+                    </div>
+                    <div className="sched-actions">
+                      <button className="link-btn" onClick={() => decide(d, 'reject')}>Cancel this application</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
 
           {held.length > 0 && (
             <section className="r-section" aria-labelledby="held-title">

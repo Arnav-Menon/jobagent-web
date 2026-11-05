@@ -226,7 +226,7 @@ export async function demoApi<T>(path: string, init: RequestInit, demo: string):
     const d = drafts.find(x => x.key === decodeURIComponent(dm[1]))
     if (!d) throw new ApiError(404, 'not_found')
     if (dm[2] === 'screens') return r(d.status === 'submitted' ? { filled: 'about:blank', result: 'about:blank', expires_in: 300 } : { expires_in: 300 })
-    if (d.status !== 'awaiting_approval') throw new ApiError(409, 'not_awaiting_approval')
+    if (d.status !== 'awaiting_approval' && !(dm[2] === 'reject' && d.status === 'scheduled')) throw new ApiError(409, 'not_awaiting_approval')
     if (dm[2] === 'reject') { drafts = drafts.map(x => (x.key === d.key ? { ...x, status: 'rejected', updated_at: now() } : x)); return r({ key: d.key, status: 'rejected' }) }
     drafts = drafts.map(x => (x.key === d.key ? { ...x, status: 'approved', updated_at: now() } : x))
     const run: Run = { id: `apply-${d.key}`, kind: 'apply', status: 'queued', trigger: 'approval', created_at: now() }
