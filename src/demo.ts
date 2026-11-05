@@ -176,6 +176,22 @@ export async function demoApi<T>(path: string, init: RequestInit, demo: string):
       applications: { submitted_today: i === 0 ? 2 : 0, submitted_7d: 4 - i, submitted_total: 9 - i, pending: i === 0 ? 1 : 0, not_sent: 0, failed: 0 },
       model_calls: { today: 12 - i * 3, '7d': 60 - i * 10 }, top_holds: i === 1 ? [['needs your standing answer', 2]] : [] })),
   })
+  if (path.startsWith('/admin/runs?')) return r([
+    { id: 'run-a', kind: 'discover', status: 'done', trigger: 'manual', created_at: now(), uid: 'u1', user: 'Alex Rivera', counts: { eligible: 90, scored: 10, drafts: 2, held: 1 } },
+    { id: 'run-b', kind: 'apply', status: 'done', trigger: 'approval', created_at: now(), uid: 'u1', user: 'Alex Rivera', counts: { submitted: 1 } },
+  ])
+  if (path.endsWith('/decisions')) return r({ run: { id: 'run-a' }, log: {
+    kind: 'discover', created_at: now(), score_budget: 10, model_calls_left_before: 30,
+    settings: { include_keywords: ['data analyst'], seniority: ['junior', 'mid'], min_fit_score: 3, mode: 'review' },
+    funnel: { scanned: 5209, already_applied_or_drafted: 4, excluded_company: 0, rejected_by_filters: 5115, passed_filters: 90 },
+    rejected_reasons: [['title lacks include keywords', 4900], ['location not in preferences', 2400]], only_reason: [['title lacks include keywords', 381]],
+    jobs: [
+      { company: 'Example Corp', title: 'Data Analyst', url: 'https://example.com/job', outcome: 'scored', score: 4, confidence: 'medium', decision: 'meets_minimum', draft_status: 'awaiting_approval', location: 'New York, NY', salary_max: 140000, seniority: 'mid',
+        detail: { rationale: 'Strong SQL and dashboard evidence; stakeholder scope partly shown.', dimensions: { cv_match: 4, north_star: 4, compensation: 3, culture: null, red_flags: 4 }, met: ['SQL', 'Dashboards'], missing: ['3+ years experience'], open_questions: ['Office days per week?'] } },
+      { company: 'Acme', title: 'Analytics Engineer', outcome: 'scored', score: 2, confidence: 'low', decision: 'below_minimum', detail: { rationale: 'Requires dbt ownership not shown.', dimensions: {}, met: [], missing: ['dbt'], open_questions: [] } },
+      { company: 'Initech', title: 'Data Analyst II', outcome: 'score_failed', reason: 'Model service returned HTTP 429' },
+      { company: 'Globex', title: 'Analyst', outcome: 'not_scored_budget' },
+    ] } })
   if (path.startsWith('/admin/runs/')) return r({ id: path.split('/')[3], status: 'cancelled' })
   if (path === '/me/export') return r({ exported_at: now(), account: demoMe, preferences: { preferences: prefs } })
   if (path === '/me/delete') return r({ deleted: true })

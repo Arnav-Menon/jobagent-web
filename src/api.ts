@@ -69,6 +69,24 @@ export type AdminStats = {
   queue: { id: string; uid: string; kind: string; status: string; created_at: string; started_at?: string; trigger?: string }[]
   users: AdminUserStats[]; runs_7d: { done: number; failed: number }; top_holds: [string, number][]; model_calls_cap: number
 }
+/* ---------- admin decision log ---------- */
+export type AdminRun = Run & { uid: string; user: string }
+export type DecisionJob = {
+  company: string; title: string; url?: string; location?: string; salary_max?: number | null; seniority?: string
+  outcome?: 'scored' | 'score_failed' | 'scored_before' | 'skipped_recent_failure' | 'not_scored_rate_limited' | 'not_scored_budget'
+  decision?: 'meets_minimum' | 'meets_minimum_over_run_limit' | 'below_minimum' | 'no_score'
+  score?: number | null; confidence?: string; scored_at?: string; reason?: string
+  detail?: { rationale: string; dimensions: Record<string, number | null>; missing: string[]; met: string[]; open_questions: string[] }
+  draft_status?: string; holds?: string[]; apply_result?: string; outcome_code?: string; scheduled_for?: string
+}
+export type DecisionLog = {
+  kind: 'discover' | 'apply'; created_at: string; result?: string
+  settings?: Record<string, unknown>
+  funnel?: { scanned: number; already_applied_or_drafted: number; excluded_company: number; rejected_by_filters: number; passed_filters: number }
+  rejected_reasons?: [string, number][]; only_reason?: [string, number][]
+  score_budget?: number; model_calls_left_before?: number; counts?: RunCounts
+  jobs: DecisionJob[]
+}
 export type Screens = { filled?: string; result?: string; expires_in: number }
 
 export class ApiError extends Error {

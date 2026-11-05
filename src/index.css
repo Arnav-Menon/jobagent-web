@@ -659,3 +659,38 @@ table.users { width: 100%; border-collapse: collapse; font-size: 15px; }
 .num { font-variant-numeric: tabular-nums; text-align: right; }
 .muted { color: var(--ink-3); }
 .hold-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+
+/* ---------- admin decisions ---------- */
+.dec-runs, .dec-jobs { list-style: none; margin: 12px 0 0; padding: 0; display: grid; gap: 8px; }
+.dec-runs > li { border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+.dec-runs > li.open { border-color: var(--ink-3); }
+.dec-run { width: 100%; display: grid; grid-template-columns: 1fr auto auto auto; gap: 12px; align-items: center; padding: 10px 14px; background: none; border: 0; text-align: left; color: inherit; cursor: pointer; }
+.dec-run:hover { background: var(--sunk); }
+.dec-run-counts { font-size: 13px; }
+.dec-body { padding: 4px 14px 16px; display: grid; gap: 12px; }
+.dec-settings { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 13px; }
+.funnel { margin: 0; padding-left: 20px; display: grid; gap: 2px; font-size: 14px; }
+.dec-reasons table { width: 100%; font-size: 13px; border-collapse: collapse; margin-top: 8px; }
+.dec-reasons td { padding: 3px 8px 3px 0; }
+.dec-reasons summary { cursor: pointer; font-weight: 600; font-size: 14px; }
+.dec-job { border-top: 1px solid var(--line); padding-top: 8px; }
+.dec-job-head { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; }
+.dec-score { width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center; font-weight: 800; background: var(--sunk); }
+.dec-score.s4, .dec-score.s5 { background: #2f9e5b; color: #fff; }
+.dec-score.s3 { background: #c98a1a; color: #fff; }
+.dec-job-text { display: grid; min-width: 0; }
+.dec-title a { color: inherit; }
+.dec-sub { font-size: 12px; }
+.dec-tags { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; }
+.src-tag.tone-muted { opacity: 0.7; }
+.dec-holds { font-size: 13px; color: var(--danger); margin: 6px 0 0 44px; display: flex; gap: 6px; align-items: center; }
+.dec-detail { margin: 8px 0 4px 44px; font-size: 14px; line-height: 1.55; display: grid; gap: 6px; }
+.dec-detail h4 { font-size: 13px; margin: 6px 0 0; }
+.dec-detail ul { margin: 0; padding-left: 18px; }
+@media (max-width: 720px) {
+  .dec-run { grid-template-columns: 1fr auto; }
+  .dec-run-counts { grid-column: 1 / -1; }
+  .dec-job-head { grid-template-columns: 34px 1fr; }
+  .dec-tags { grid-column: 2; justify-content: flex-start; }
+  .dec-detail, .dec-holds { margin-left: 0; }
+}

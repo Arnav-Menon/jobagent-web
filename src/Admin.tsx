@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { api, type AdminStats, type AdminUser, type Invite, type Me } from './api'
+import Decisions from './Decisions'
 import { Avatar, Badge, Icon, Skeleton, fullTime, relTime, useToast } from './ui'
 
 const msg = (e: unknown) => (e instanceof Error ? e.message : String(e))
@@ -141,6 +142,8 @@ export default function Admin({ me }: { me: Me }) {
           </table>
         </div>
       </section>
+
+      <Decisions />
 
       <div className="admin-grid">
         <section className="panel" aria-labelledby="users-title">

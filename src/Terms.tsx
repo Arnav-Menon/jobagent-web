@@ -32,14 +32,17 @@ export default function Terms() {
           <li>Your resume PDF, confirmed details, standing answers, preferences, drafts, form screenshots, run history and the list of applications sent, in a private Google Cloud project (Firestore and Cloud Storage, US).</li>
           <li>Your resume text and job descriptions are sent to OpenAI to score fit and draft short answers. The admin pays for this.</li>
           <li>Summary emails are sent to your Google sign-in address from the admin’s Gmail account. You can turn them off in Preferences.</li>
-          <li>The admin sees your name, email, and counts (applications sent, held, failed; searches run). Not your answers, resume or screenshots.</li>
+          <li>The admin sees your name, email, and counts (applications sent, held, failed; searches run).</li>
+          <li>During these early weeks the admin can also see a decision log for each of your searches: which jobs passed your filters, each job’s fit score and the scorer’s
+            explanation (which refers to your resume), the requirements it found met or missing, and why an application was held. This is to check the agent works properly.
+            The admin does not see your form answers, contact details, resume file or screenshots.</li>
           <li>Logs record events and IDs, not your answers or contact details, and are kept for 30 days.</li>
         </ul>
 
         <h2>Your data, your choice</h2>
         <p>Under Setup → Your data you can download everything stored about you, or delete it. Deleting removes your resume, details, answers, preferences, drafts, screenshots and run history.
           The list of companies and roles already applied to is kept so the agent never applies to the same posting twice. Applications already sent can’t be withdrawn by Job Agent.</p>
-        <p className="hint">Last updated 5 November 2026.</p>
+        <p className="hint">Last updated 5 November 2026 (admin decision log added).</p>
       </article>
       <p><a className="btn btn-quiet" href="#/" onClick={e => { e.preventDefault(); history.pushState(null, '', location.pathname + location.search); dispatchEvent(new HashChangeEvent('hashchange')) }}>Back to Job Agent</a></p>
     </div>
