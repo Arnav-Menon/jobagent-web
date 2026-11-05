@@ -8,11 +8,13 @@ import type { StepProps } from './types'
 const DEFAULTS: Preferences = {
   locations: [], work_modes: [], include_keywords: [], exclude_keywords: [], seniority: [],
   min_base_salary: null, companies_avoid: [], companies_prefer: [], min_fit_score: 4, max_per_day: 3, notes: '',
+  scan_time: '10:00', daily_scan: true, email_notifications: true,
 }
 const LABELS: Record<keyof Preferences, string> = {
   locations: 'Locations', work_modes: 'Work arrangement', include_keywords: 'Roles to look for', exclude_keywords: 'Roles to skip',
   seniority: 'Level', min_base_salary: 'Lowest base salary', companies_avoid: 'Companies to skip', companies_prefer: 'Companies you’d like most',
   min_fit_score: 'How close a fit', max_per_day: 'Applications per day', notes: 'Anything else',
+  scan_time: 'Search time', daily_scan: 'Daily search', email_notifications: 'Email updates',
 }
 const FIT: Record<number, string> = {
   1: 'Apply broadly, even to loose matches.', 2: 'Apply to partial matches.', 3: 'Apply to reasonable matches.',
@@ -29,6 +31,7 @@ function validate(p: Preferences, salaryText: string): Errors {
   if (!p.work_modes.length) e.work_modes = 'Choose at least one.'
   if (!p.seniority.length) e.seniority = 'Choose at least one.'
   if (salaryText.trim() && !(Number(salaryText) > 0 && Number(salaryText) <= 2_000_000)) e.min_base_salary = 'Enter a yearly amount in US dollars, like 120000.'
+  if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(p.scan_time)) e.scan_time = 'Pick a time, like 09:00.'
   if (p.notes.length > NOTES_MAX) e.notes = `Keep this under ${NOTES_MAX} characters.`
   return e
 }
@@ -136,6 +139,24 @@ export default function PreferencesStep({ onDone, setDirty }: StepProps) {
         <Field label={LABELS.max_per_day} as="group" help={`At most ${p.max_per_day} ${p.max_per_day === 1 ? 'application' : 'applications'} on a weekday.`}>
           {({ labelId }) => <Segmented name="perday" labelledBy={labelId} value={String(p.max_per_day) as '1'} onChange={v => set('max_per_day', Number(v))}
             options={[1, 2, 3, 4, 5].map(n => ({ value: String(n) as '1', label: String(n) }))} />}
+        </Field>
+      </fieldset>
+
+      <fieldset className="group">
+        <legend>Schedule and email</legend>
+        <Field label={LABELS.daily_scan} as="group" help={p.daily_scan ? 'Searches for new roles every weekday on its own.' : 'Only searches when you press “Find jobs”.'}>
+          {({ labelId }) => <Segmented name="daily" labelledBy={labelId} value={p.daily_scan ? 'on' : 'off'} onChange={v => set('daily_scan', v === 'on')}
+            options={[{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]} />}
+        </Field>
+        {p.daily_scan && (
+          <Field label={LABELS.scan_time} help="New York time, Monday to Friday. Applications you approve are still sent from 9:00." error={errors.scan_time}>
+            {({ id, describedBy }) => <input id={id} aria-describedby={describedBy} aria-invalid={!!errors.scan_time || undefined} type="time" step={900}
+              className="time-input" value={p.scan_time} onChange={e => set('scan_time', e.target.value)} />}
+          </Field>
+        )}
+        <Field label={LABELS.email_notifications} as="group" help={p.email_notifications ? 'After each search or application, a short summary goes to your sign-in email. Nothing is sent when nothing changed.' : 'No emails. Check Results for updates.'}>
+          {({ labelId }) => <Segmented name="emails" labelledBy={labelId} value={p.email_notifications ? 'on' : 'off'} onChange={v => set('email_notifications', v === 'on')}
+            options={[{ value: 'on', label: 'On' }, { value: 'off', label: 'Off' }]} />}
         </Field>
       </fieldset>
 

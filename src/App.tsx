@@ -4,6 +4,7 @@ import { api, ApiError, auth, DEMO, logOut, signIn, type Me } from './api'
 import Admin from './Admin'
 import Landing from './Landing'
 import Results, { prefetchResults, type SetupTarget } from './Results'
+import Terms from './Terms'
 import Setup from './Setup'
 import { Avatar, Icon, Logo, Skeleton, ThemeToggle, ToastProvider } from './ui'
 
@@ -76,6 +77,23 @@ export default function App() {
   }, [loadMe])
 
   const email = auth.currentUser?.email || (DEMO ? 'alex.rivera@example.com' : '')
+  const [route, setRoute] = useState(location.hash)
+  useEffect(() => {
+    const on = () => { setRoute(location.hash); scrollTo(0, 0) }
+    addEventListener('hashchange', on)
+    return () => removeEventListener('hashchange', on)
+  }, [])
+
+  if (route === '#/terms') {
+    const leave = (t: Tab) => { setTab(t); history.pushState(null, '', location.pathname + location.search); setRoute('') }
+    return (
+      <ToastProvider>
+        {state.kind === 'ready'
+          ? <Shell me={state.me} onTab={leave}><Terms /></Shell>
+          : <div className="shell"><main id="main" className="terms-bare"><Terms /></main></div>}
+      </ToastProvider>
+    )
+  }
 
   return (
     <ToastProvider>
@@ -160,6 +178,9 @@ function UserMenu({ me }: { me: Me | null }) {
             {name && <strong>{name}</strong>}
             <span>{email}</span>
           </div>
+          <a role="menuitem" className="menu-item" href="#/terms" onClick={() => setOpen(false)}>
+            <Icon name="lock" size={16} /> Terms and privacy
+          </a>
           <button role="menuitem" className="menu-item" onClick={() => { setOpen(false); logOut() }} autoFocus>
             <Icon name="logout" size={16} /> Sign out
           </button>

@@ -4,19 +4,21 @@ import { errorText } from './errors'
 import DetailsStep from './setup/DetailsStep'
 import ModeStep from './setup/ModeStep'
 import PreferencesStep from './setup/PreferencesStep'
+import DataStep from './setup/DataStep'
 import ResumeStep from './setup/ResumeStep'
 import StandingStep from './setup/StandingStep'
 import type { StepProps } from './setup/types'
 import { Badge, Icon, Skeleton, useToast } from './ui'
 
-type Step = StepKey | 'mode'
-const ORDER: Step[] = ['resume', 'details', 'standing', 'preferences', 'mode']
+type Step = StepKey | 'mode' | 'data'
+const ORDER: Step[] = ['resume', 'details', 'standing', 'preferences', 'mode', 'data']
 const META: Record<Step, { title: string; short: string; Comp: (p: StepProps) => React.ReactNode }> = {
   resume: { title: 'Upload your resume', short: 'Resume', Comp: ResumeStep },
   details: { title: 'Confirm your details', short: 'Details', Comp: DetailsStep },
   standing: { title: 'Standing answers', short: 'Standing answers', Comp: StandingStep },
   preferences: { title: 'Preferences', short: 'Preferences', Comp: PreferencesStep },
   mode: { title: 'Choose how it applies', short: 'Mode', Comp: ModeStep },
+  data: { title: 'Your data', short: 'Your data', Comp: () => null },
 }
 
 export default function Setup({ me, initialStep }: { me: Me; initialStep?: Step }) {
@@ -34,7 +36,7 @@ export default function Setup({ me, initialStep }: { me: Me; initialStep?: Step 
   }, [])
 
   const load = useCallback(() => {
-    refresh().then(s => setStep(initialStep || ORDER.find(k => k !== 'mode' && !s.steps[k as StepKey]) || 'mode'), e => setLoadErr(errorText(e)))
+    refresh().then(s => setStep(initialStep || ORDER.find(k => k !== 'mode' && k !== 'data' && !s.steps[k as StepKey]) || 'mode'), e => setLoadErr(errorText(e)))
   }, [refresh, initialStep])
   useEffect(() => { load() }, [load])
 
@@ -59,7 +61,7 @@ export default function Setup({ me, initialStep }: { me: Me; initialStep?: Step 
     dirty.current = false
     if (message) toast(message)
     const i = ORDER.indexOf(step)
-    if (i < ORDER.length - 1) go(ORDER[i + 1])
+    if (i < ORDER.indexOf('mode')) go(ORDER[i + 1])
     try { await refresh() } catch { /* progress refresh is best-effort */ }
   }
 
@@ -70,6 +72,7 @@ export default function Setup({ me, initialStep }: { me: Me; initialStep?: Step 
   const status = (s: Step): { text: string; done: boolean } => {
     if (!setup) return { text: '', done: false }
     if (s === 'mode') return { text: setup.mode === 'auto' ? 'Automatic' : 'Review', done: false }
+    if (s === 'data') return { text: 'Export or delete', done: false }
     if (setup.steps[s]) return { text: 'Done', done: true }
     if (s === 'details' && setup.steps.resume && setup.missing_details.length)
       return { text: `${setup.missing_details.length} required left`, done: false }
@@ -109,7 +112,7 @@ export default function Setup({ me, initialStep }: { me: Me; initialStep?: Step 
                 return (
                   <li key={s}>
                     <button className={`stepper-item${st.done ? ' done' : ''}`} aria-current={step === s ? 'step' : undefined} onClick={() => go(s)} disabled={!setup}>
-                      <span className="check-n" aria-hidden="true">{st.done ? <Icon name="check" size={15} /> : i + 1}</span>
+                      <span className="check-n" aria-hidden="true">{st.done ? <Icon name="check" size={15} /> : s === 'data' ? <Icon name="lock" size={14} /> : i + 1}</span>
                       <span className="stepper-text">
                         <span className="stepper-title">{META[s].short}</span>
                         <span className="stepper-status">{setup ? st.text : <Skeleton w={50} h={10} />}</span>
@@ -123,11 +126,11 @@ export default function Setup({ me, initialStep }: { me: Me; initialStep?: Step 
 
           <section className="panel step-panel" ref={panel} tabIndex={-1} aria-labelledby="step-title">
             <div className="step-head">
-              <p className="step-count">Step {ORDER.indexOf(step) + 1} of {ORDER.length}</p>
+              {step !== 'data' && <p className="step-count">Step {ORDER.indexOf(step) + 1} of {ORDER.length - 1}</p>}
               <h2 id="step-title">{title}</h2>
             </div>
-            {setup
-              ? <Comp key={step} setup={setup} onDone={onDone} setDirty={setDirty} />
+            {setup && step === 'data' ? <DataStep me={me} />
+              : setup ? <Comp key={step} setup={setup} onDone={onDone} setDirty={setDirty} />
               : <div className="step-body">{[0, 1, 2].map(i => <div key={i} className="sk-field"><Skeleton w={140} h={12} /><Skeleton h={40} /></div>)}</div>}
           </section>
         </div>

@@ -104,7 +104,7 @@ export default function Landing({ onSignIn }: { onSignIn: () => Promise<unknown>
         </ul>
       </section>
 
-      <footer className="foot">Job Agent is a private, invite-only tool.</footer>
+      <footer className="foot">Job Agent is a private, invite-only tool. <a href="#/terms">Terms and privacy</a></footer>
     </div>
   )
 }

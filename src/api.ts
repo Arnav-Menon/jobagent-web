@@ -34,12 +34,13 @@ export type Preferences = {
   locations: string[]; work_modes: WorkMode[]; include_keywords: string[]; exclude_keywords: string[]
   seniority: Seniority[]; min_base_salary: number | null; companies_avoid: string[]; companies_prefer: string[]
   min_fit_score: number; max_per_day: number; notes: string
+  scan_time: string; daily_scan: boolean; email_notifications: boolean
 }
 
 /* ---------- Phase 4: runs, drafts, applications ---------- */
 export type RunCounts = { scanned?: number; eligible?: number; scored?: number; drafts?: number; held?: number; submitted?: number; pending?: number; scheduled?: number; needs_you?: number }
 export type Run = {
-  id: string; kind: 'discover' | 'apply'; status: 'queued' | 'running' | 'done' | 'failed'
+  id: string; kind: 'discover' | 'apply'; status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled'
   created_at: string; started_at?: string; finished_at?: string; trigger: 'manual' | 'daily' | 'approval' | 'scheduled'
   counts?: RunCounts; error?: string
 }
@@ -53,6 +54,21 @@ export type Draft = {
 export type Decision = { key: string; status: 'approved' | 'scheduled' | 'rejected'; run_id?: string; scheduled_for?: string; reason?: 'daily_limit' | 'weekend' }
 export type AppState = 'SUBMITTING' | 'PENDING_VERIFICATION' | 'SUBMITTED' | 'FAILED' | 'NOT_SENT'
 export type Application = { key: string; state: AppState; company: string; title: string; url: string; quota_day: string; updated_at: string }
+/* ---------- Phase 5: admin dashboard (aggregates only) ---------- */
+export type AdminUserStats = {
+  uid: string; display_name: string; email: string; status: string; mode: string; last_seen_at?: string
+  last_run: { id: string; kind: string; status: string; created_at: string; finished_at?: string; error?: string } | null
+  runs_7d: Record<'done' | 'failed' | 'queued' | 'running' | 'cancelled', number>
+  drafts: Record<'awaiting_approval' | 'held' | 'needs_you' | 'scheduled', number>
+  applications: { submitted_today: number; submitted_7d: number; submitted_total: number; pending: number; not_sent: number; failed: number }
+  model_calls: { today: number; '7d': number }
+  top_holds: [string, number][]
+}
+export type AdminStats = {
+  worker: { heartbeat_at?: string; host?: string }
+  queue: { id: string; uid: string; kind: string; status: string; created_at: string; started_at?: string; trigger?: string }[]
+  users: AdminUserStats[]; runs_7d: { done: number; failed: number }; top_holds: [string, number][]; model_calls_cap: number
+}
 export type Screens = { filled?: string; result?: string; expires_in: number }
 
 export class ApiError extends Error {

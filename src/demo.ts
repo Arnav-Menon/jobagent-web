@@ -66,7 +66,7 @@ function seedDone() {
   const v: Record<string, FactValue> = { name: 'Alex Rivera', email: 'alex.rivera@example.com', phone: '+1 555 010 0199', city: 'New York, NY', years_experience: 4, work_authorized_us: true, requires_sponsorship: false, current_company: 'Example Corp', current_title: 'Data Analyst' }
   facts = Object.fromEntries(Object.entries(v).map(([k, x]) => [k, { value: x, confirmed_at: ago(60 * 29) }]))
   standing = Object.fromEntries(STANDING_KEYS.map((k, i) => [k.key, { value: (i % 3 === 2 ? 'hold' : i % 2 ? 'no' : 'yes') as StandingValue, confirmed_at: ago(60 * 28) }]))
-  prefs = { locations: ['New York, NY'], work_modes: ['onsite', 'hybrid'], include_keywords: ['data analyst', 'analytics engineer'], exclude_keywords: ['sales'], seniority: ['mid'], min_base_salary: 110000, companies_avoid: [], companies_prefer: ['Example Corp'], min_fit_score: 4, max_per_day: 3, notes: 'Skip roles that need more than 3 days in office.' }
+  prefs = { locations: ['New York, NY'], work_modes: ['onsite', 'hybrid'], include_keywords: ['data analyst', 'analytics engineer'], exclude_keywords: ['sales'], seniority: ['mid'], min_base_salary: 110000, companies_avoid: [], companies_prefer: ['Example Corp'], min_fit_score: 4, max_per_day: 3, notes: 'Skip roles that need more than 3 days in office.', scan_time: '10:00', daily_scan: true, email_notifications: true }
   prefsAt = ago(60 * 27)
 }
 
@@ -165,6 +165,20 @@ export async function demoApi<T>(path: string, init: RequestInit, demo: string):
 
   if (path === '/me') return r({ ...demoMe, role: demo === 'user' ? 'user' : 'admin', mode })
   if (path === '/admin/users') return r(users)
+  if (path === '/admin/stats') return r({
+    worker: { heartbeat_at: new Date(Date.now() - 40_000).toISOString(), host: 'worker-vm' }, model_calls_cap: 40,
+    runs_7d: { done: 18, failed: 1 }, top_holds: [['needs your standing answer', 3], ['not in profile', 1]],
+    queue: [{ id: 'r-q1', uid: users[1]?.uid || 'u2', kind: 'discover', status: 'queued', created_at: now(), trigger: 'daily' }],
+    users: users.map((u, i) => ({ uid: u.uid, display_name: u.display_name, email: u.email, status: u.status, mode: u.mode, last_seen_at: u.last_seen_at,
+      last_run: { id: 'r' + i, kind: 'discover', status: i === 2 ? 'failed' : 'done', created_at: now() },
+      runs_7d: { done: 5 - i, failed: i === 2 ? 1 : 0, queued: 0, running: 0, cancelled: 0 },
+      drafts: { awaiting_approval: i, held: i === 1 ? 2 : 0, needs_you: i === 0 ? 1 : 0, scheduled: i === 0 ? 1 : 0 },
+      applications: { submitted_today: i === 0 ? 2 : 0, submitted_7d: 4 - i, submitted_total: 9 - i, pending: i === 0 ? 1 : 0, not_sent: 0, failed: 0 },
+      model_calls: { today: 12 - i * 3, '7d': 60 - i * 10 }, top_holds: i === 1 ? [['needs your standing answer', 2]] : [] })),
+  })
+  if (path.startsWith('/admin/runs/')) return r({ id: path.split('/')[3], status: 'cancelled' })
+  if (path === '/me/export') return r({ exported_at: now(), account: demoMe, preferences: { preferences: prefs } })
+  if (path === '/me/delete') return r({ deleted: true })
   if (path === '/admin/invites' && method === 'GET') return r(invites)
   if (path === '/admin/invites') { invites = [...invites, { email: body.email, created_at: now() }]; return r({ email: body.email }) }
   if (path.startsWith('/admin/invites/')) { const e = decodeURIComponent(path.split('/').pop()!); invites = invites.filter(i => i.email !== e); return r({ removed: e }) }

@@ -620,6 +620,8 @@ table.users { width: 100%; border-collapse: collapse; font-size: 15px; }
   .users td:first-child { flex-basis: 100%; margin-bottom: 4px; }
   .users td.actions { margin-left: auto; }
   .users td[data-label='Last seen'] { font-size: 13px; }
+  .activity td.num { text-align: left; font-size: 13px; }
+  .activity td.num::before { content: attr(data-label) ': '; color: var(--ink-3); }
   .demo-field { grid-template-columns: 1fr; }
   .demo-src { grid-column: 1; grid-row: auto; justify-self: start; max-width: none; }
   .gate { padding: 56px 18px; }
@@ -637,3 +639,23 @@ table.users { width: 100%; border-collapse: collapse; font-size: 15px; }
   .step-actions-row { flex-wrap: wrap; }
   .step-actions-row .btn { flex: 1; }
 }
+
+/* ---------- Phase 5/6 ---------- */
+.time-input { max-width: 160px; }
+.btn-danger { background: var(--danger); color: #fff; }
+.btn-danger:hover:not(:disabled) { filter: brightness(0.92); }
+.danger-zone legend { color: var(--danger); }
+.delete-form { display: grid; gap: 10px; }
+.terms-bare { padding: 32px 20px; max-width: 860px; margin: 0 auto; }
+.prose { display: grid; gap: 12px; line-height: 1.6; }
+.prose h2 { font-size: 18px; margin-top: 12px; }
+.prose h2:first-child { margin-top: 0; }
+.prose ul { padding-left: 20px; display: grid; gap: 6px; }
+.foot a { color: inherit; text-decoration: underline; margin-left: 6px; }
+.health { display: flex; flex-wrap: wrap; gap: 10px 24px; align-items: center; }
+.health .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; background: var(--ink-3); }
+.health .dot.ok { background: #2f9e5b; }
+.health .dot.bad { background: var(--danger); }
+.num { font-variant-numeric: tabular-nums; text-align: right; }
+.muted { color: var(--ink-3); }
+.hold-list { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
