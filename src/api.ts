@@ -51,7 +51,7 @@ export type Draft = {
   key: string; status: DraftStatus; company: string; title: string; url: string; apply_url?: string
   provider: 'ashby' | 'greenhouse' | 'lever' | 'lever-eu'; score: number | null; confidence?: string
   plan: PlanRow[]; holds: string[]; outcome?: string; scheduled_for?: string; created_at: string; updated_at: string
-  open_questions?: OpenQuestion[]; my_answers?: Record<string, string>; updating?: boolean; update_error?: string | null
+  open_questions?: OpenQuestion[]; my_answers?: Record<string, string>; updating?: boolean; update_error?: string | null; auto_skipped?: string
 }
 export type SavedAnswer = { question: string; answer: string; saved_at?: string }
 export type SavedAnswers = { answers: SavedAnswer[]; replan_run?: string | null }

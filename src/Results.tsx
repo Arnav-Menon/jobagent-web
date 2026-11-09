@@ -18,7 +18,8 @@ function dayName(iso?: string) {
   return target.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
 }
 
-const active = (r: Run) => r.status === 'queued' || r.status === 'running'
+/** A run that blocks a new search. An application queued for the sending machine (e.g. a sleeping Mac) doesn't. */
+const active = (r: Run) => r.status === 'running' || (r.status === 'queued' && r.kind !== 'apply')
 
 /* ---------- small helpers ---------- */
 
@@ -267,7 +268,7 @@ export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTar
             {inFlight.length > 0 && (
               <ul className="inflight">
                 {inFlight.map(d => (
-                  <li key={d.key}><span className="spinner spinner-sm" aria-hidden="true" /> <span><strong>{d.company}</strong>, {d.title}: approved, submitting soon.</span></li>
+                  <li key={d.key}><span className="spinner spinner-sm" aria-hidden="true" /> <span><strong>{d.company}</strong>, {d.title}: {d.status === 'submitting' ? 'submitting now.' : 'approved, waiting to be sent.'}</span></li>
                 ))}
               </ul>
             )}
@@ -464,6 +465,7 @@ function DraftCard({ d, name, onDecide, onAnswer, onFinish }: {
         Via {PROVIDER[d.provider] || d.provider}. Found {relTime(d.created_at).toLowerCase()}. {filled} of {d.plan.length} questions answered{d.plan.length > filled ? `, ${d.plan.length - filled} left blank` : ''}.
       </p>
       <Updating d={d} />
+      {d.auto_skipped && <p className="updating"><Icon name="alert" size={15} /> {d.auto_skipped}</p>}
 
       <button className="disclose" aria-expanded={open} aria-controls={`plan-${d.key}`} onClick={() => setOpen(o => !o)}>
         <span className="chev" aria-hidden="true" /> {open ? 'Hide answers' : `Show all ${d.plan.length} answers`}
