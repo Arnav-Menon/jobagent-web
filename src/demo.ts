@@ -66,7 +66,7 @@ function seedDone() {
   const v: Record<string, FactValue> = { name: 'Alex Rivera', email: 'alex.rivera@example.com', phone: '+1 555 010 0199', city: 'New York, NY', years_experience: 4, work_authorized_us: true, requires_sponsorship: false, current_company: 'Example Corp', current_title: 'Data Analyst' }
   facts = Object.fromEntries(Object.entries(v).map(([k, x]) => [k, { value: x, confirmed_at: ago(60 * 29) }]))
   standing = Object.fromEntries(STANDING_KEYS.map((k, i) => [k.key, { value: (i % 3 === 2 ? 'hold' : i % 2 ? 'no' : 'yes') as StandingValue, confirmed_at: ago(60 * 28) }]))
-  prefs = { locations: ['New York, NY'], work_modes: ['onsite', 'hybrid'], include_keywords: ['data analyst', 'analytics engineer'], exclude_keywords: ['sales'], seniority: ['mid'], min_base_salary: 110000, companies_avoid: [], companies_prefer: ['Example Corp'], min_fit_score: 4, max_per_day: 3, notes: 'Skip roles that need more than 3 days in office.', scan_time: '10:00', daily_scan: true, email_notifications: true }
+  prefs = { locations: ['New York, NY'], work_modes: ['onsite', 'hybrid'], include_keywords: ['data analyst', 'analytics engineer'], exclude_keywords: ['sales'], seniority: ['mid'], min_base_salary: 110000, companies_avoid: [], companies_prefer: ['Example Corp'], min_fit_score: 4, max_per_day: 3, max_per_company_week: 2, notes: 'Skip roles that need more than 3 days in office.', scan_time: '10:00', daily_scan: true, email_notifications: true }
   prefsAt = ago(60 * 27)
 }
 

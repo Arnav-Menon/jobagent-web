@@ -7,13 +7,13 @@ import type { StepProps } from './types'
 
 const DEFAULTS: Preferences = {
   locations: [], work_modes: [], include_keywords: [], exclude_keywords: [], seniority: [],
-  min_base_salary: null, companies_avoid: [], companies_prefer: [], min_fit_score: 4, max_per_day: 3, notes: '',
+  min_base_salary: null, companies_avoid: [], companies_prefer: [], min_fit_score: 4, max_per_day: 3, max_per_company_week: 2, notes: '',
   scan_time: '10:00', daily_scan: true, email_notifications: true,
 }
 const LABELS: Record<keyof Preferences, string> = {
   locations: 'Locations', work_modes: 'Work arrangement', include_keywords: 'Roles to look for', exclude_keywords: 'Roles to skip',
   seniority: 'Level', min_base_salary: 'Lowest base salary', companies_avoid: 'Companies to skip', companies_prefer: 'Companies you’d like most',
-  min_fit_score: 'How close a fit', max_per_day: 'Applications per day', notes: 'Anything else',
+  min_fit_score: 'How close a fit', max_per_day: 'Applications per day', max_per_company_week: 'Roles per company each week', notes: 'Anything else',
   scan_time: 'Search time', daily_scan: 'Daily search', email_notifications: 'Email updates',
 }
 const FIT: Record<number, string> = {
@@ -138,6 +138,11 @@ export default function PreferencesStep({ onDone, setDirty }: StepProps) {
         </Field>
         <Field label={LABELS.max_per_day} as="group" help={`At most ${p.max_per_day} ${p.max_per_day === 1 ? 'application' : 'applications'} on a weekday.`}>
           {({ labelId }) => <Segmented name="perday" labelledBy={labelId} value={String(p.max_per_day) as '1'} onChange={v => set('max_per_day', Number(v))}
+            options={[1, 2, 3, 4, 5].map(n => ({ value: String(n) as '1', label: String(n) }))} />}
+        </Field>
+        <Field label={LABELS.max_per_company_week} as="group"
+          help={`In automatic mode, at most ${p.max_per_company_week} ${p.max_per_company_week === 1 ? 'role' : 'roles'} at the same company in 7 days, best fit first. More matches there wait for your approval. Companies flag many applications from one person as spam.`}>
+          {({ labelId }) => <Segmented name="percompany" labelledBy={labelId} value={String(p.max_per_company_week) as '1'} onChange={v => set('max_per_company_week', Number(v))}
             options={[1, 2, 3, 4, 5].map(n => ({ value: String(n) as '1', label: String(n) }))} />}
         </Field>
       </fieldset>

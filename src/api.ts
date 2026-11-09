@@ -33,7 +33,7 @@ export type Seniority = 'junior' | 'mid' | 'senior' | 'staff'
 export type Preferences = {
   locations: string[]; work_modes: WorkMode[]; include_keywords: string[]; exclude_keywords: string[]
   seniority: Seniority[]; min_base_salary: number | null; companies_avoid: string[]; companies_prefer: string[]
-  min_fit_score: number; max_per_day: number; notes: string
+  min_fit_score: number; max_per_day: number; max_per_company_week: number; notes: string
   scan_time: string; daily_scan: boolean; email_notifications: boolean
 }
 
