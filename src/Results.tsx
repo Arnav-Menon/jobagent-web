@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { api, ApiError, DEMO, type Application, type Decision, type AppState, type Draft, type Me, type Run, type Screens, type SetupStatus } from './api'
 import { errorText } from './errors'
 import { Icon, Skeleton, fullTime, relTime, useToast } from './ui'
+import { AnswerForm, ApplyMyself, CopyAnswers, canAnswer, formUrl, type AnswerIn } from './answers'
 
 export type SetupTarget = 'resume' | 'details' | 'standing' | 'preferences' | 'mode'
 const POLL_MS = import.meta.env.DEV && DEMO ? 3000 : 20000
@@ -33,6 +34,10 @@ function countsText(r: Run): string {
   if (r.kind === 'apply') {
     if (c.submitted) parts.push(`${c.submitted} submitted`)
     if (c.pending) parts.push(`${c.pending} unconfirmed`)
+  } else if (r.kind === 'replan') {
+    if (c.drafts) parts.push(`${c.drafts} ready for you`)
+    if (c.held) parts.push(`${c.held} still held`)
+    if (c.update_failed) parts.push(`${c.update_failed} couldn’t be updated`)
   } else {
     if (c.scanned != null) parts.push(`${c.scanned} jobs checked`)
     if (c.eligible != null) parts.push(`${c.eligible} matched your rules`)
@@ -45,7 +50,7 @@ function countsText(r: Run): string {
 
 const RUN_ERRORS: Record<string, string> = {}
 const runName = (r: Run) =>
-  r.kind === 'apply' ? (r.trigger === 'scheduled' ? 'Submitting scheduled application' : 'Submitting approved application') : r.trigger === 'manual' ? 'Search you started' : 'Daily search'
+  r.kind === 'replan' ? 'Updating applications with your answers' : r.kind === 'apply' ? (r.trigger === 'scheduled' ? 'Submitting scheduled application' : 'Submitting approved application') : r.trigger === 'manual' ? 'Search you started' : 'Daily search'
 
 const STATE: Record<AppState, { label: string; tone: string; hint: string }> = {
   SUBMITTED: { label: 'Submitted', tone: 'ok', hint: 'The company’s confirmation page was seen.' },
@@ -60,6 +65,7 @@ const PROVIDER: Record<string, string> = { ashby: 'Ashby', greenhouse: 'Greenhou
 /** Map a hold reason (worker `Hold(...)` messages) to the setup step that fixes it, if any. */
 function holdFix(reason: string): { step: SetupTarget; label: string } | null {
   const r = reason.toLowerCase()
+  if (r.includes('your saved answer')) return { step: 'standing', label: 'Review saved answers' }
   if (r.includes('standing answer')) return { step: 'standing', label: 'Review standing answers' }
   if (r.includes('resume digest')) return { step: 'resume', label: 'Check your resume' }
   if (/not in profile|phone confirmed only|no experience option fits/.test(r)) return { step: 'details', label: 'Check your details' }
@@ -119,7 +125,9 @@ export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTar
         if (wasActive.current && !r.some(active)) {
           wasActive.current = false
           const fin = r[0]
-          toast(fin?.status === 'failed' ? 'The search stopped with an error.' : fin?.kind === 'apply' ? 'Submission finished. See Applications below.' : 'Search finished.', fin?.status === 'failed' ? 'danger' : 'ok')
+          toast(fin?.status === 'failed' ? (fin?.kind === 'replan' ? 'Updating stopped with an error. Try answering again.' : 'The search stopped with an error.')
+            : fin?.kind === 'apply' ? 'Submission finished. See Applications below.' : fin?.kind === 'replan' ? 'Updated with your answers.' : 'Search finished.',
+            fin?.status === 'failed' ? 'danger' : 'ok')
           loadAll()
         }
       } catch { /* keep polling; transient errors are fine */ }
@@ -138,6 +146,19 @@ export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTar
       else if (e instanceof ApiError && e.detail === 'run_in_progress') { setStartErr({ text: errorText(e) }); loadAll() }
       else setStartErr({ text: errorText(e) })
     } finally { setStarting(false) }
+  }
+
+  const answer = async (d: Draft, answers: AnswerIn[]): Promise<string | null> => {
+    try {
+      const res = await api<{ remembered: number }>(`/me/drafts/${encodeURIComponent(d.key)}/answers`, { method: 'POST', body: JSON.stringify({ answers }) })
+      toast(`Saved${res.remembered ? ` (${res.remembered} remembered for future forms)` : ''}. Updating ${d.company} with your answers. This takes a minute.`)
+      wasActive.current = true
+      await loadAll()
+      return null
+    } catch (e) {
+      if (e instanceof ApiError && (e.detail === 'not_awaiting_approval' || e.detail === 'unknown_draft' || e.detail === 'unknown_question')) loadAll()
+      return errorText(e)
+    }
   }
 
   const finish = async (d: Draft, how: 'submitted' | 'skipped') => {
@@ -194,7 +215,7 @@ export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTar
         </div>
         <div className="head-action">
           <button className="btn btn-primary" onClick={start} disabled={starting || !!running || loading || !ready}>
-            {running ? <><span className="spinner spinner-sm" aria-hidden="true" /> {running.kind === 'apply' ? 'Submitting…' : 'Searching…'}</> : starting ? 'Starting…' : 'Find jobs now'}
+            {running ? <><span className="spinner spinner-sm" aria-hidden="true" /> {running.kind === 'apply' ? 'Submitting…' : running.kind === 'replan' ? 'Updating…' : 'Searching…'}</> : starting ? 'Starting…' : 'Find jobs now'}
           </button>
           <p className="hint">Also runs automatically every weekday.</p>
         </div>
@@ -241,7 +262,7 @@ export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTar
                 </p>
               </div>
             ) : (
-              <div className="drafts">{awaiting.map(d => <DraftCard key={d.key} d={d} name={me.display_name || me.email} onDecide={decide} />)}</div>
+              <div className="drafts">{awaiting.map(d => <DraftCard key={d.key} d={d} name={me.display_name || me.email} onDecide={decide} onAnswer={answer} onFinish={finish} />)}</div>
             )}
             {inFlight.length > 0 && (
               <ul className="inflight">
@@ -292,29 +313,9 @@ export default function Results({ me, goSetup }: { me: Me; goSetup: (s: SetupTar
                 <h2 id="held-title">Held</h2>
                 <span className="count tone-held">{held.length}</span>
               </div>
-              <p className="r-sub">These matched your rules but can’t be submitted yet. Nothing was typed or sent.</p>
+              <p className="r-sub">These matched your rules but can’t be submitted yet. Nothing was typed or sent. Answer what’s missing here, or fill the application in yourself.</p>
               <ul className="held">
-                {held.map(d => (
-                  <li key={d.key} className="held-item">
-                    <div className="held-top">
-                      <JobTitle d={d} />
-                      <span className="when">{relTime(d.created_at)}</span>
-                    </div>
-                    <ul className="reasons">
-                      {d.holds.map(h => {
-                        const fix = holdFix(h)
-                        return (
-                          <li key={h}>
-                            <Icon name="alert" size={15} />
-                            <span>{h}</span>
-                            {fix && <button className="link-btn" onClick={() => goSetup(fix.step)}>{fix.label}</button>}
-                          </li>
-                        )
-                      })}
-                      {d.holds.length === 0 && <li><Icon name="alert" size={15} /><span>No reason was recorded.</span></li>}
-                    </ul>
-                  </li>
-                ))}
+                {held.map(d => <HeldCard key={d.key} d={d} goSetup={goSetup} onAnswer={answer} onFinish={finish} />)}
               </ul>
             </section>
           )}
@@ -368,7 +369,9 @@ function RunBanner({ run }: { run: Run }) {
         <p className="run-banner-title">
           {run.kind === 'apply'
             ? (run.status === 'queued' ? 'Submission queued. It will start in a moment.' : 'Submitting your approved application…')
-            : (run.status === 'queued' ? 'Search queued. It will start in a moment.' : 'Searching career boards for matching roles…')}
+            : run.kind === 'replan'
+              ? (run.status === 'queued' ? 'Update queued. It starts after anything already running.' : 'Re-reading the application with your answers. Nothing is submitted…')
+              : (run.status === 'queued' ? 'Search queued. It will start in a moment.' : 'Searching career boards for matching roles…')}
         </p>
         <p className="run-banner-meta">Started {relTime(run.started_at || run.created_at).toLowerCase()}{c ? `. ${c[0].toUpperCase()}${c.slice(1)} so far.` : '.'} This page updates on its own.</p>
       </div>
@@ -388,11 +391,7 @@ function JobTitle({ d }: { d: Pick<Draft, 'company' | 'title' | 'url'> }) {
 function NeedsYouCard({ d, onFinish }: { d: Draft; onFinish: (d: Draft, how: 'submitted' | 'skipped') => Promise<void> }) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
-  const [copied, setCopied] = useState<number | null>(null)
-  const answers = d.plan.filter(p => p.value !== null && p.kind !== 'file')
-  const copy = async (i: number, v: string) => {
-    try { await navigator.clipboard.writeText(v); setCopied(i); setTimeout(() => setCopied(c => (c === i ? null : c)), 1500) } catch { /* clipboard blocked */ }
-  }
+  const count = d.plan.filter(p => p.value !== null && p.kind !== 'file').length
   const act = async (how: 'submitted' | 'skipped') => { setBusy(true); await onFinish(d, how); setBusy(false) }
   return (
     <article className="draft needs-card" aria-label={`${d.company}, ${d.title}`}>
@@ -402,24 +401,12 @@ function NeedsYouCard({ d, onFinish }: { d: Draft; onFinish: (d: Draft, how: 'su
       </div>
       <p className="draft-meta">Open the application, paste the answers you approved, attach your resume and submit it yourself.</p>
       <div className="needs-actions">
-        <a className="btn btn-primary btn-sm" href={d.url} target="_blank" rel="noopener noreferrer">Open application<span className="sr-only"> (new tab)</span></a>
+        <a className="btn btn-primary btn-sm" href={formUrl(d)} target="_blank" rel="noopener noreferrer">Open application<span className="sr-only"> (new tab)</span></a>
         <button className="disclose" aria-expanded={open} aria-controls={`needs-${d.key}`} onClick={() => setOpen(o => !o)}>
-          <span className="chev" aria-hidden="true" /> {open ? 'Hide answers' : `Show ${answers.length} answers to copy`}
+          <span className="chev" aria-hidden="true" /> {open ? 'Hide answers' : `Show ${count} answers to copy`}
         </button>
       </div>
-      {open && (
-        <dl className="plan" id={`needs-${d.key}`}>
-          {answers.map((p, i) => (
-            <div key={i} className="plan-row">
-              <dt>{p.label}</dt>
-              <dd>
-                <span className="plan-v">{p.value}</span>
-                <button className="link-btn" onClick={() => copy(i, p.value as string)}>{copied === i ? 'Copied' : 'Copy'}</button>
-              </dd>
-            </div>
-          ))}
-        </dl>
-      )}
+      {open && <CopyAnswers rows={d.plan} id={`needs-${d.key}`} />}
       <div className="needs-actions needs-done">
         <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => act('skipped')}>Skip it</button>
         <button className="btn btn-quiet btn-sm" disabled={busy} onClick={() => act('submitted')}>I submitted it</button>
@@ -428,9 +415,22 @@ function NeedsYouCard({ d, onFinish }: { d: Draft; onFinish: (d: Draft, how: 'su
   )
 }
 
-function DraftCard({ d, name, onDecide }: { d: Draft; name: string; onDecide: (d: Draft, a: 'approve' | 'reject') => Promise<boolean> }) {
+type AnswerFn = (d: Draft, answers: AnswerIn[]) => Promise<string | null>
+type FinishFn = (d: Draft, how: 'submitted' | 'skipped') => Promise<void>
+
+function Updating({ d }: { d: Draft }) {
+  if (d.updating) return <p className="updating" role="status"><span className="spinner spinner-sm" aria-hidden="true" /> Updating with your answers. This takes a minute.</p>
+  if (d.update_error) return <p className="updating tone-danger"><Icon name="alert" size={15} /> {d.update_error}</p>
+  return null
+}
+
+function DraftCard({ d, name, onDecide, onAnswer, onFinish }: {
+  d: Draft; name: string; onDecide: (d: Draft, a: 'approve' | 'reject') => Promise<boolean>; onAnswer: AnswerFn; onFinish: FinishFn
+}) {
   const [open, setOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
+  const [myself, setMyself] = useState(false)
+  const [answering, setAnswering] = useState<number | null>(null)
   const [busy, setBusy] = useState<'approve' | 'reject' | null>(null)
   const filled = d.plan.filter(p => p.value !== null).length
   const confirmRef = useRef<HTMLButtonElement>(null)
@@ -441,6 +441,11 @@ function DraftCard({ d, name, onDecide }: { d: Draft; name: string; onDecide: (d
     if (!ok) { setBusy(null); setConfirming(false) }
   }
   const askApprove = () => { setOpen(true); setConfirming(true); requestAnimationFrame(() => confirmRef.current?.focus()) }
+  const save = async (answers: AnswerIn[]) => {
+    const err = await onAnswer(d, answers)
+    if (!err) setAnswering(null)
+    return err
+  }
 
   return (
     <article className={`draft${confirming ? ' confirming' : ''}`} aria-labelledby={`dt-${d.key}`}>
@@ -458,6 +463,7 @@ function DraftCard({ d, name, onDecide }: { d: Draft; name: string; onDecide: (d
       <p className="draft-meta">
         Via {PROVIDER[d.provider] || d.provider}. Found {relTime(d.created_at).toLowerCase()}. {filled} of {d.plan.length} questions answered{d.plan.length > filled ? `, ${d.plan.length - filled} left blank` : ''}.
       </p>
+      <Updating d={d} />
 
       <button className="disclose" aria-expanded={open} aria-controls={`plan-${d.key}`} onClick={() => setOpen(o => !o)}>
         <span className="chev" aria-hidden="true" /> {open ? 'Hide answers' : `Show all ${d.plan.length} answers`}
@@ -468,13 +474,24 @@ function DraftCard({ d, name, onDecide }: { d: Draft; name: string; onDecide: (d
             <div key={i} className="plan-row">
               <dt>{p.label}</dt>
               <dd>
-                {p.value === null ? <span className="blank">Left blank</span> : <span className="plan-v">{p.value}</span>}
-                <span className="plan-src">{p.source}</span>
+                {answering === i ? (
+                  <AnswerForm questions={[p]} onSave={save} onCancel={() => setAnswering(null)} saveLabel="Save answer" />
+                ) : (
+                  <>
+                    {p.value === null ? <span className="blank">Left blank</span> : <span className="plan-v">{p.value}</span>}
+                    <span className="plan-src">{p.source}</span>
+                    {p.value === null && canAnswer(p) && !d.updating && !confirming && (
+                      <button className="link-btn" onClick={() => setAnswering(i)}>Answer this</button>
+                    )}
+                  </>
+                )}
               </dd>
             </div>
           ))}
         </dl>
       )}
+
+      {myself && <ApplyMyself d={d} onFinish={onFinish} onClose={() => setMyself(false)} />}
 
       {confirming ? (
         <div className="confirm" role="group" aria-label="Confirm submission">
@@ -488,11 +505,54 @@ function DraftCard({ d, name, onDecide }: { d: Draft; name: string; onDecide: (d
         </div>
       ) : (
         <div className="draft-actions">
+          {!myself && <button className="btn btn-quiet draft-myself" onClick={() => setMyself(true)} disabled={!!busy}>Apply myself</button>}
           <button className="btn btn-quiet" onClick={() => act('reject')} disabled={!!busy}>{busy === 'reject' ? 'Rejecting…' : 'Reject'}</button>
-          <button className="btn btn-primary" onClick={askApprove} disabled={!!busy}>Approve</button>
+          <button className="btn btn-primary" onClick={askApprove} disabled={!!busy || !!d.updating}>Approve</button>
         </div>
       )}
     </article>
+  )
+}
+
+function HeldCard({ d, goSetup, onAnswer, onFinish }: { d: Draft; goSetup: (s: SetupTarget) => void; onAnswer: AnswerFn; onFinish: FinishFn }) {
+  const [myself, setMyself] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const qs = (d.open_questions || []).filter(canAnswer)
+  const covered = new Set(qs.map(q => q.reason))
+  const other = d.holds.filter(h => !covered.has(h))
+  return (
+    <li className="held-item">
+      <div className="held-top">
+        <JobTitle d={d} />
+        <span className="when">{relTime(d.created_at)}</span>
+      </div>
+      <Updating d={d} />
+      {other.length > 0 && (
+        <ul className="reasons">
+          {other.map(h => {
+            const fix = holdFix(h)
+            return (
+              <li key={h}>
+                <Icon name="alert" size={15} />
+                <span>{h}</span>
+                {fix && <button className="link-btn" onClick={() => goSetup(fix.step)}>{fix.label}</button>}
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      {d.holds.length === 0 && <ul className="reasons"><li><Icon name="alert" size={15} /><span>No reason was recorded.</span></li></ul>}
+      {qs.length > 0 && !d.updating && (
+        <AnswerForm questions={qs} onSave={answers => onAnswer(d, answers)}
+          intro={`The agent couldn’t answer ${qs.length === 1 ? 'this question' : 'these questions'} from your profile. Answer here and it re-checks the application. Nothing is submitted until you approve it.`} />
+      )}
+      {myself ? <ApplyMyself d={d} onFinish={onFinish} onClose={() => setMyself(false)} /> : (
+        <div className="sched-actions held-actions">
+          <button className="link-btn" onClick={() => setMyself(true)}>Fill it in myself</button>
+          <button className="link-btn" disabled={busy} onClick={async () => { setBusy(true); await onFinish(d, 'skipped'); setBusy(false) }}>Skip this job</button>
+        </div>
+      )}
+    </li>
   )
 }
 

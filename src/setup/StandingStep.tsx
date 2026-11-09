@@ -4,6 +4,7 @@ import { errorText } from '../errors'
 import { Icon, Skeleton } from '../ui'
 import { Segmented, StepActions, useDirty } from './controls'
 import type { StepProps } from './types'
+import SavedAnswers from './SavedAnswers'
 
 const OPTIONS: { value: StandingValue; label: string; tone: 'ok' | 'danger' | 'held' }[] = [
   { value: 'yes', label: 'Yes', tone: 'ok' },
@@ -44,6 +45,7 @@ export default function StandingStep({ onDone, setDirty }: StepProps) {
   }
 
   return (
+    <>
     <form className="step-body" onSubmit={save} noValidate>
       <p className="step-intro">
         Some applications ask yes-or-no questions your resume can’t answer. Answer them once here and the same answer is used every time.
@@ -65,5 +67,7 @@ export default function StandingStep({ onDone, setDirty }: StepProps) {
       <StepActions busy={busy} label="Save answers" busyLabel="Saving…" error={err}
         extra={unanswered > 0 ? <span className="pending-count">{unanswered} left to answer</span> : undefined} />
     </form>
+    <SavedAnswers />
+    </>
   )
 }

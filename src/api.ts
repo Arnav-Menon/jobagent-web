@@ -38,19 +38,23 @@ export type Preferences = {
 }
 
 /* ---------- Phase 4: runs, drafts, applications ---------- */
-export type RunCounts = { scanned?: number; eligible?: number; scored?: number; drafts?: number; held?: number; submitted?: number; pending?: number; scheduled?: number; needs_you?: number }
+export type RunCounts = { updated?: number; update_failed?: number; scanned?: number; eligible?: number; scored?: number; drafts?: number; held?: number; submitted?: number; pending?: number; scheduled?: number; needs_you?: number }
 export type Run = {
-  id: string; kind: 'discover' | 'apply'; status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled'
-  created_at: string; started_at?: string; finished_at?: string; trigger: 'manual' | 'daily' | 'approval' | 'scheduled'
+  id: string; kind: 'discover' | 'apply' | 'replan'; status: 'queued' | 'running' | 'done' | 'failed' | 'cancelled'
+  created_at: string; started_at?: string; finished_at?: string; trigger: 'manual' | 'daily' | 'approval' | 'scheduled' | 'answers'
   counts?: RunCounts; error?: string
 }
 export type DraftStatus = 'awaiting_approval' | 'held' | 'scheduled' | 'needs_you' | 'submitted_by_you' | 'dismissed' | 'approved' | 'submitting' | 'submitted' | 'pending_verification' | 'rejected' | 'failed'
-export type PlanRow = { label: string; kind: string; value: string | null; source: string }
+export type PlanRow = { label: string; kind: string; value: string | null; source: string; required?: boolean; options?: string[] }
+export type OpenQuestion = { label: string; kind: string; required: boolean; options: string[]; reason: string }
 export type Draft = {
-  key: string; status: DraftStatus; company: string; title: string; url: string
+  key: string; status: DraftStatus; company: string; title: string; url: string; apply_url?: string
   provider: 'ashby' | 'greenhouse' | 'lever' | 'lever-eu'; score: number | null; confidence?: string
   plan: PlanRow[]; holds: string[]; outcome?: string; scheduled_for?: string; created_at: string; updated_at: string
+  open_questions?: OpenQuestion[]; my_answers?: Record<string, string>; updating?: boolean; update_error?: string | null
 }
+export type SavedAnswer = { question: string; answer: string; saved_at?: string }
+export type SavedAnswers = { answers: SavedAnswer[]; replan_run?: string | null }
 export type Decision = { key: string; status: 'approved' | 'scheduled' | 'rejected'; run_id?: string; scheduled_for?: string; reason?: 'daily_limit' | 'weekend' }
 export type AppState = 'SUBMITTING' | 'PENDING_VERIFICATION' | 'SUBMITTED' | 'FAILED' | 'NOT_SENT'
 export type Application = { key: string; state: AppState; company: string; title: string; url: string; quota_day: string; updated_at: string }

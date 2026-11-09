@@ -694,3 +694,27 @@ table.users { width: 100%; border-collapse: collapse; font-size: 15px; }
   .dec-tags { grid-column: 2; justify-content: flex-start; }
   .dec-detail, .dec-holds { margin-left: 0; }
 }
+
+/* ---------- answering questions on drafts, applying yourself, saved answers ---------- */
+.answer-form { display: grid; gap: 14px; width: 100%; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r-md); background: var(--sunk); }
+.plan-row dd .answer-form { margin-top: 2px; }
+.answer-field { display: grid; gap: 6px; min-width: 0; }
+.answer-field .req { color: var(--ink-3); font-weight: 500; font-size: 13px; }
+.remember { display: inline-flex; align-items: flex-start; gap: 8px; font-size: 14px; color: var(--ink-2); cursor: pointer; }
+.remember input { margin-top: 3px; accent-color: var(--accent); }
+.answer-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
+.updating { display: flex; align-items: center; gap: 8px; font-size: 14.5px; color: var(--ink-2); }
+.updating.tone-danger { color: var(--danger); }
+.myself { display: grid; gap: 12px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r-md); }
+.myself > p { font-size: 15px; color: var(--ink-2); max-width: 70ch; }
+.draft-actions .draft-myself { margin-right: auto; }
+.held-actions { display: flex; gap: 18px; flex-wrap: wrap; }
+.saved-answers { display: grid; gap: 12px; margin-top: 36px; padding-top: 28px; border-top: 1px solid var(--line); justify-items: start; }
+.saved-answers h3 { font-size: 18px; font-weight: 650; }
+.sa-list { list-style: none; margin: 0; padding: 0; width: 100%; border: 1px solid var(--line); border-radius: var(--r-md); }
+.sa-list li { display: flex; gap: 16px; align-items: flex-start; justify-content: space-between; padding: 12px 16px; flex-wrap: wrap; }
+.sa-list li + li { border-top: 1px dashed var(--line); }
+.sa-text { display: grid; gap: 2px; min-width: 0; flex: 1 1 280px; }
+.sa-q { color: var(--ink-2); font-size: 14.5px; }
+.sa-a { font-weight: 600; white-space: pre-wrap; overflow-wrap: anywhere; }
+.sa-actions { display: flex; gap: 14px; }

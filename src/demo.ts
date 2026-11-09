@@ -1,6 +1,6 @@
 // Dev-only fixtures for `?demo=…` previews. Made-up people only. Mirrors jobs/docs/API.md.
 import { ApiError } from './api'
-import type { AdminUser, Application, Draft, FactValue, Run, FieldSpec, Invite, Me, Preferences, Profile, ResumeMeta, Standing, StandingSpec, StandingValue } from './api'
+import type { AdminUser, Application, Draft, FactValue, Run, FieldSpec, Invite, Me, Preferences, Profile, ResumeMeta, SavedAnswer, Standing, StandingSpec, StandingValue } from './api'
 
 const ago = (mins: number) => new Date(Date.now() - mins * 60000).toISOString()
 const now = () => new Date().toISOString()
@@ -74,6 +74,8 @@ function seedDone() {
 let runs: Run[] = []
 let drafts: Draft[] = []
 let apps: Application[] = []
+let saved: SavedAnswer[] = [{ question: "What's your go-to programming language?", answer: 'Python', saved_at: ago(60 * 24) }]
+const qkey = (t: string) => t.replace(/\((required|optional)\)\s*$/i, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim()
 const today = () => new Date().toISOString().slice(0, 10)
 
 const planFor = (company: string): Draft['plan'] => [
@@ -85,6 +87,7 @@ const planFor = (company: string): Draft['plan'] => [
   { label: 'Will you now or in the future require sponsorship?', kind: 'radio', value: 'No', source: 'profile' },
   { label: `Why are you interested in ${company}?`, kind: 'textarea', value: 'I have spent four years building analytics pipelines with SQL and dbt, and your team works on the same kind of problems.', source: 'resume draft (quoted)' },
   { label: 'LinkedIn profile', kind: 'url', value: null, source: 'not in profile (optional)' },
+  { label: 'How did you hear about us?', kind: 'select', value: null, source: 'how-heard left blank', options: ['LinkedIn', 'A friend', 'Job board', 'Other'] },
   { label: 'Gender', kind: 'select', value: 'Decline to self-identify', source: 'policy: demographics declined' },
 ]
 
@@ -97,7 +100,10 @@ function seedResults() {
   drafts = [
     { key: 'd1', status: 'awaiting_approval', company: 'Northwind Analytics', title: 'Analytics Engineer', url: 'https://example.com/jobs/1', provider: 'greenhouse', score: 4.4, confidence: 'high', plan: planFor('Northwind Analytics'), holds: [], created_at: ago(60 * 5 - 8), updated_at: ago(60 * 5 - 8) },
     { key: 'd2', status: 'awaiting_approval', company: 'Contoso Health', title: 'Senior Data Analyst, Growth', url: 'https://example.com/jobs/2', provider: 'ashby', score: 4.1, confidence: 'medium', plan: planFor('Contoso Health').slice(0, 7), holds: [], created_at: ago(60 * 5 - 7), updated_at: ago(60 * 5 - 7) },
-    { key: 'd3', status: 'held', company: 'Fabrikam Labs', title: 'Data Analyst', url: 'https://example.com/jobs/3', provider: 'lever', score: 4.0, plan: [], holds: ['needs your standing answer (background_check_consent): Do you consent to a background check?', 'start date needed: When can you start?', 'LinkedIn required but not in profile: LinkedIn profile'], created_at: ago(60 * 5 - 6), updated_at: ago(60 * 5 - 6) },
+    { key: 'd3', status: 'held', company: 'Fabrikam Labs', title: 'Data Analyst', url: 'https://example.com/jobs/3', provider: 'lever', score: 4.0, plan: planFor('Fabrikam Labs').slice(0, 6), holds: ['needs your standing answer (background_check_consent): Do you consent to a background check?', 'start date needed: When can you start?', "required question has no matching answer/option: Bachelor's Graduation Year [radio] options=['2027 / later', '2026', '2025', '2024 / earlier']"], open_questions: [
+      { label: 'When can you start?', kind: 'text', required: true, options: [], reason: 'start date needed: When can you start?' },
+      { label: "Bachelor's Graduation Year", kind: 'radio', required: true, options: ['2027 / later', '2026', '2025', '2024 / earlier'], reason: "required question has no matching answer/option: Bachelor's Graduation Year [radio] options=['2027 / later', '2026', '2025', '2024 / earlier']" },
+    ], created_at: ago(60 * 5 - 6), updated_at: ago(60 * 5 - 6) },
     { key: 'd4', status: 'needs_you', company: 'Tailspin Toys', title: 'Data Engineer', url: 'https://example.com/jobs/4', provider: 'ashby', score: 4.3, plan: planFor('Tailspin Toys'), holds: [], outcome: 'CAPTCHA_CHALLENGE', created_at: ago(60 * 7), updated_at: ago(60 * 6) },
     { key: 'd0', status: 'submitted', company: 'Example Corp', title: 'Data Analyst II', url: 'https://example.com/jobs/0', provider: 'ashby', score: 4.6, plan: planFor('Example Corp'), holds: [], outcome: 'VISIBLE_SUCCESS', created_at: ago(60 * 30), updated_at: ago(60 * 26 - 3) },
   ]
@@ -115,6 +121,19 @@ function tick() {
     const age = (t - new Date(r.created_at).getTime()) / 1000
     if (age < 4) return r
     if (age < 14) return { ...r, status: 'running', started_at: r.started_at || new Date(t).toISOString(), counts: r.kind === 'discover' ? { scanned: Math.round(age * 12) } : r.counts }
+    if (r.kind === 'replan') {
+      const mine = (d: Draft) => ({ ...Object.fromEntries(saved.map(a => [qkey(a.question), a.answer])), ...Object.fromEntries(Object.entries(d.my_answers || {}).map(([q, a]) => [qkey(q), a])) })
+      drafts = drafts.map(d => {
+        if (!d.updating) return d
+        const m = mine(d)
+        const plan = d.plan.map(p => (p.value === null && m[qkey(p.label)] ? { ...p, value: m[qkey(p.label)], source: 'your answer' } : p))
+        const open = (d.open_questions || []).filter(q => !m[qkey(q.label)])
+        const answered = (d.open_questions || []).filter(q => m[qkey(q.label)]).map(q => ({ label: q.label, kind: q.kind, value: m[qkey(q.label)], source: 'your answer', options: q.options }))
+        const holds = d.holds.filter(h => !(d.open_questions || []).some(q => q.reason === h && m[qkey(q.label)]))
+        return { ...d, plan: [...plan, ...answered], open_questions: open, holds, status: holds.length ? 'held' : 'awaiting_approval', updating: false, updated_at: now() }
+      })
+      return { ...r, status: 'done', finished_at: now(), counts: { updated: 1, drafts: 1 } }
+    }
     if (r.kind === 'apply') {
       const key = r.id.replace('apply-', '')
       drafts = drafts.map(d => (d.key === key ? { ...d, status: 'submitted', outcome: 'VISIBLE_SUCCESS', updated_at: now() } : d))
@@ -255,9 +274,31 @@ export async function demoApi<T>(path: string, init: RequestInit, demo: string):
   const done = path.match(/^\/me\/drafts\/([^/]+)\/done$/)
   if (done) {
     const d = drafts.find(x => x.key === done[1])
-    if (!d || d.status !== 'needs_you') throw new ApiError(409, 'not_awaiting_approval')
+    if (!d || !['needs_you', 'awaiting_approval', 'held', 'scheduled'].includes(d.status)) throw new ApiError(409, 'not_awaiting_approval')
     const status = body.how === 'submitted' ? 'submitted_by_you' : 'dismissed'
     drafts = drafts.map(x => (x.key === d.key ? { ...x, status, updated_at: now() } : x)); return r({ key: d.key, status })
+  }
+  if (path === '/me/answers' && method === 'GET') return r({ answers: saved })
+  if (path === '/me/answers') {
+    saved = (body.answers as SavedAnswer[]).map(a => ({ ...a, saved_at: saved.find(x => x.question === a.question && x.answer === a.answer)?.saved_at || now() }))
+    return r({ answers: saved, replan_run: null })
+  }
+  const da = path.match(/^\/me\/drafts\/([^/]+)\/answers$/)
+  if (da) {
+    const d = drafts.find(x => x.key === decodeURIComponent(da[1]))
+    if (!d) throw new ApiError(404, 'unknown_draft')
+    const ans = body.answers as { question: string; answer: string; remember: boolean }[]
+    if (ans.some(a => /gender|race|veteran|disabilit/i.test(a.question))) throw bad('demographic_question')
+    const mine = { ...(d.my_answers || {}) }
+    let remembered = 0
+    for (const a of ans) {
+      mine[a.question] = a.answer
+      if (a.remember) { saved = [...saved.filter(x => qkey(x.question) !== qkey(a.question)), { question: a.question, answer: a.answer, saved_at: now() }]; remembered++ }
+    }
+    drafts = drafts.map(x => (x.key === d.key ? { ...x, my_answers: mine, updating: true } : x))
+    const run: Run = { id: `replan-${Date.now()}`, kind: 'replan', status: 'queued', trigger: 'answers', created_at: now() }
+    runs = [run, ...runs]
+    return r({ key: d.key, updating: true, run_id: run.id, remembered })
   }
   const dm = path.match(/^\/me\/drafts\/([^/]+)\/(approve|reject|screens)$/)
   if (dm) {
