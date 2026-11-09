@@ -547,9 +547,12 @@ function HeldCard({ d, goSetup, onAnswer, onFinish }: { d: Draft; goSetup: (s: S
           intro={`The agent couldn’t answer ${qs.length === 1 ? 'this question' : 'these questions'} from your profile. Answer here and it re-checks the application. Nothing is submitted until you approve it.`} />
       )}
       {myself ? <ApplyMyself d={d} onFinish={onFinish} onClose={() => setMyself(false)} /> : (
-        <div className="sched-actions held-actions">
-          <button className="link-btn" onClick={() => setMyself(true)}>Fill it in myself</button>
-          <button className="link-btn" disabled={busy} onClick={async () => { setBusy(true); await onFinish(d, 'skipped'); setBusy(false) }}>Skip this job</button>
+        <div className="held-actions">
+          <button className="link-btn" onClick={() => setMyself(true)}>Show answers to fill it in myself</button>
+          <span className="held-done">
+            <button className="btn btn-quiet btn-sm" disabled={busy} onClick={async () => { setBusy(true); await onFinish(d, 'skipped'); setBusy(false) }}>Skip this job</button>
+            <button className="btn btn-quiet btn-sm" disabled={busy} onClick={async () => { setBusy(true); await onFinish(d, 'submitted'); setBusy(false) }}>I applied myself</button>
+          </span>
         </div>
       )}
     </li>
